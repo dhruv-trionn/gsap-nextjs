@@ -1,0 +1,53 @@
+@import "tailwindcss/preflight";
+@import "tailwindcss/utilities";
+
+/* Custom styles for split text animation */
+.split-text-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.split-text-container .char {
+  display: inline-block;
+  position: relative;
+  transform-origin: center;
+}
+
+/* Smooth transitions for better animation */
+.char {
+  transition: all 0.1s ease-out;
+}
+
+/* Optional: Add a subtle glow effect */
+.split-text-container .char {
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+}
+
+/* Enhanced backdrop blur for better readability */
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Custom gradient animations */
+@keyframes gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient-shift 3s ease infinite;
+}
