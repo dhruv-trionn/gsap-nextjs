@@ -52,27 +52,3 @@ html {
   background-size: 200% 200%;
   animation: gradient-shift 3s ease infinite;
 }
-
-  /* Marquee */
-  .tc__marquee {
-    @apply w-full relative;
-  }
-  .tc__marquee__spacer {
-    @apply whitespace-nowrap invisible;
-  }
-  .tc__marquee__container {
-    @apply absolute top-1/2 -translate-y-2/4;
-  }
-  .tc__marquee__slider {
-    @apply relative whitespace-nowrap;
-  }
-  .tc__marquee__slider div {
-    @apply relative;
-  }
-  .tc__marquee__slider div:nth-of-type(2) {
-    @apply absolute left-full top-0;
-  }
-
-  .tc__section__horizontal-scroll-wrapper {
-    @apply h-screen flex items-center;
-  }
