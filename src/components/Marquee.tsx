@@ -3,6 +3,7 @@ import { useRef, useEffect, ReactElement } from "react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 gsap.registerPlugin(ScrollTrigger);
+
 interface MarqueeProps {
   content: ReactElement;
 }
@@ -43,14 +44,21 @@ export default function Marquee({ content }: MarqueeProps) {
   };
 
   return (
-    <div className="tc__marquee">
-      <div className="tc__marquee__container">
-        <div ref={slider} className="tc__marquee__slider">
-          <div ref={firstText}>{content}</div>
-          <div ref={secondText}>{content}</div>
+    <div className="w-full relative">
+      {/* Spacer ensures proper height for layout */}
+      <div className="whitespace-nowrap invisible">{content}</div>
+
+      {/* Marquee container */}
+      <div className="absolute top-1/2 -translate-y-1/2">
+        <div ref={slider} className="relative whitespace-nowrap">
+          <div ref={firstText} className="relative">
+            {content}
+          </div>
+          <div ref={secondText} className="absolute left-full top-0">
+            {content}
+          </div>
         </div>
       </div>
-      <div className="tc__marquee__spacer">{content}</div>
     </div>
   );
 }
