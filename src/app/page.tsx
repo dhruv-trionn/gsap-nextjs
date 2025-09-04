@@ -2,6 +2,8 @@ import AnimationDemo from "@/components/AnimationDemo";
 import HorizontalScroll from "@/components/HorizontalScroll";
 import Marquee from "@/components/Marquee";
 import FadeOnScroll from "@/components/FadeOnScroll";
+import LogoAnimation from "@/components/LogoAnimation";
+import TrionnLetterLoader from "@/components/LogoAnimation2";
 
 export default function Home() {
   return (
@@ -25,6 +27,8 @@ Fixed login page UI. Added dynamic GPT payloads from AI Assistant and FAQ post t
           </p>
         }
       />
+      <LogoAnimation />
+      <TrionnLetterLoader />
       <AnimationDemo />
     </div>
   );
