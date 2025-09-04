@@ -32,12 +32,12 @@ const FadeOnScroll = ({
       smartWrap: true,
       onSplit: (self) => {
         return gsap.to(self.chars, {
-          color: 'black',
+          color: 'royalblue',
           stagger: 0.03,
           scrollTrigger: {
             trigger: self.chars,
             endTrigger: self.chars[self.chars.length - 1],
-            markers: true,
+            markers: false,
             scrub: true,
             // once: true, 
             start: "top 80%",
