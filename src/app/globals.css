@@ -30,10 +30,6 @@
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Smooth scrolling */
-html {
-  scroll-behavior: smooth;
-}
 
 /* Custom gradient animations */
 @keyframes gradient-shift {

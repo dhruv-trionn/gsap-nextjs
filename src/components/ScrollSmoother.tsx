@@ -1,103 +1,34 @@
-"use client";
+'use client';
 
-import React, { useEffect, useMemo, useRef } from "react";
-import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useEffect } from 'react';
+import Lenis from '@studio-freight/lenis';
+import gsap from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
-import { ScrollSmoother } from "gsap/ScrollSmoother";
+gsap.registerPlugin(ScrollTrigger);
 
-
-export type ScrollSmootherProps = {
-  smooth?: number;
-  effects?: boolean;
-  normalizeScroll?: boolean;
-  respectReducedMotion?: boolean;
-  className?: string;
-  children: React.ReactNode;
-};
-
-let _pluginsRegistered = false;
-
-function registerPluginsOnce() {
-  if (_pluginsRegistered) return;
-  if (typeof window === "undefined") return;
-  gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
-  _pluginsRegistered = true;
-}
-
-export default function ScrollSmootherProvider({
-  smooth = 1,
-  effects = true,
-  normalizeScroll = true,
-  respectReducedMotion = true,
-  className,
+export default function SmoothScroll({
   children,
-}: ScrollSmootherProps) {
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const contentRef = useRef<HTMLDivElement | null>(null);
-
-  const reducedMotion = useMemo(() => {
-    if (typeof window === "undefined" || !respectReducedMotion) return false;
-    return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
-  }, [respectReducedMotion]);
-
+}: {
+  children: React.ReactNode;
+}) {
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    registerPluginsOnce();
+    const lenis = new Lenis();
 
-    if (!(ScrollSmoother && (ScrollSmoother).create)) {
-      if (process.env.NODE_ENV !== "production") {
-        console.warn(
-          "ScrollSmoother plugin not found. Ensure you have access to Club GreenSock and the import path is correct."
-        );
-      }
-      return;
-    }
+    // Sync Lenis with GSAP
+    lenis.on('scroll', ScrollTrigger.update);
 
-    if (!wrapperRef.current || !contentRef.current) return;
-
-    if (reducedMotion) {
-      document.documentElement.style.scrollBehavior = "smooth";
-      return;
-    }
-
-    const smoother = ScrollSmoother.create({
-      wrapper: wrapperRef.current,
-      content: contentRef.current,
-      smooth,
-      effects,
-      normalizeScroll,
+    gsap.ticker.add((time) => {
+      lenis.raf(time * 1000); // GSAP uses seconds, Lenis uses ms
     });
 
-    // Refresh ScrollTrigger when Next.js route changes could reflow layout
-    const handleResize = () => ScrollTrigger.refresh();
-    window.addEventListener("resize", handleResize);
+    gsap.ticker.lagSmoothing(0);
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      // Kill smoother & ScrollTriggers on unmount
-      try {
-        smoother?.kill();
-      } catch (_) {
-        // ignore
-      }
-      ScrollTrigger.getAll().forEach((t) => t.kill());
+      lenis.destroy();
+      gsap.ticker.remove(lenis.raf);
     };
-  }, [smooth, effects, normalizeScroll, reducedMotion]);
+  }, []);
 
-  return (
-    <div
-      ref={wrapperRef}
-      className={
-        "gsap-smoother-wrapper overflow-hidden h-full w-full " + (className ?? "")
-      }
-      style={{
-        minHeight: "100%",
-      }}
-    >
-      <div ref={contentRef} className="gsap-smoother-content min-h-screen">
-        {children}
-      </div>
-    </div>
-  );
+  return <>{children}</>;
 }
