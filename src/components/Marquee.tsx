@@ -22,6 +22,7 @@ export default function Marquee({ content }: MarqueeProps) {
         start: "top bottom",
         end: "bottom top",
         scrub: 0.25,
+        // eslint-disable-next-line
         onUpdate: (e) => (direction = e.direction * -1),
       },
       x: "-=500px",

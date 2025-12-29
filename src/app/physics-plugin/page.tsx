@@ -111,7 +111,7 @@ const Page = () => {
         // });
 
         // Use case: sparks, smoke puffs, fire embers
-        // gsap.utils.toArray(".piece").forEach(emitParticle);
+        gsap.utils.toArray(".piece").forEach(emitParticle);
 
         gsap.to(".box", {
             duration: 2,
@@ -132,6 +132,7 @@ const Page = () => {
     }, [])
 
 
+    // eslint-disable-next-line
     function emitParticle(particle: any) {
         gsap.set(particle, { x: 0, y: 0, opacity: 1 });
 

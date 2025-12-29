@@ -46,6 +46,7 @@ export default function PageTransition({
         attachLinkInterceptors();
 
         return () => cleanupLinks();
+        // eslint-disable-next-line
     }, [pathname]);
 
     /* ---------------------------------- */

@@ -10,6 +10,7 @@ gsap.registerPlugin(ScrollTrigger);
 const AdvancedStack = () => {
     const containerRef = useRef<HTMLDivElement>(null);
     const cardsRef = useRef<HTMLElement[] | []>([]);
+    // eslint-disable-next-line
     const [title, setTitle] = useState('Sticky Cards');
 
     const cards = [

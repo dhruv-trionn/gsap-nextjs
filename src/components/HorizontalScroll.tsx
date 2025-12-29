@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, PropsWithChildren } from "react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
+import Image from "next/image";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -61,20 +62,20 @@ export default function StickyHorizontalTwoUp({
           onRefreshInit: setPanelWidths,
           ...(snap
             ? {
-                snap: {
-                  snapTo:
-                    typeof snap === "number"
-                      ? snap
-                      : (value: number) => {
-                          const steps = Math.max(
-                            1,
-                            panels.length - visibleSlides
-                          );
-                          return Math.round(value * steps) / steps;
-                        },
-                  duration: { min: 0.08, max: 0.25 },
-                },
-              }
+              snap: {
+                snapTo:
+                  typeof snap === "number"
+                    ? snap
+                    : (value: number) => {
+                      const steps = Math.max(
+                        1,
+                        panels.length - visibleSlides
+                      );
+                      return Math.round(value * steps) / steps;
+                    },
+                duration: { min: 0.08, max: 0.25 },
+              },
+            }
             : {}),
         },
       });
@@ -102,9 +103,9 @@ export default function StickyHorizontalTwoUp({
       ref={containerRef}
       className={`relative h-screen overflow-hidden ${className}`}
     >
-        <h1 className="text-center text-4xl absolute top-8 left-1/2 transform -translate-x-1/2 text-black text-4xl font-bold z-10">
-            Horizontal Scroll Demo
-          </h1>
+      <h1 className="text-center text-4xl absolute top-8 left-1/2 transform -translate-x-1/2 text-black font-bold z-10">
+        Horizontal Scroll Demo
+      </h1>
       <div
         ref={trackRef}
         className={`flex h-full will-change-transform ${trackClassName}`}
@@ -114,10 +115,12 @@ export default function StickyHorizontalTwoUp({
         ) : (
           <>
             <Panel>
-              <img
+              <Image
                 src="https://picsum.photos/400/300?random=1"
                 alt="Slide 1"
                 className="rounded-xl mb-4"
+                height={400}
+                width={300}
               />
               <h2 className="text-2xl font-bold mb-2 text-black">Amazing Nature</h2>
               <p className="text-base max-w-xs text-center text-black">
@@ -126,10 +129,12 @@ export default function StickyHorizontalTwoUp({
               </p>
             </Panel>
             <Panel>
-              <img
+              <Image
                 src="https://picsum.photos/400/300?random=2"
                 alt="Slide 2"
                 className="rounded-xl mb-4"
+                height={400}
+                width={300}
               />
               <h2 className="text-2xl font-bold mb-2 text-black">Urban Life</h2>
               <p className="text-base max-w-xs text-center text-black">
@@ -138,10 +143,12 @@ export default function StickyHorizontalTwoUp({
               </p>
             </Panel>
             <Panel>
-              <img
+              <Image
                 src="https://picsum.photos/400/300?random=3"
                 alt="Slide 3"
                 className="rounded-xl mb-4"
+                height={400}
+                width={300}
               />
               <h2 className="text-2xl font-bold mb-2 text-black">Wildlife Wonders</h2>
               <p className="text-base max-w-xs text-center text-black">
@@ -149,10 +156,12 @@ export default function StickyHorizontalTwoUp({
               </p>
             </Panel>
             <Panel>
-              <img
+              <Image
                 src="https://picsum.photos/400/300?random=4"
                 alt="Slide 4"
                 className="rounded-xl mb-4"
+                height={400}
+                width={300}
               />
               <h2 className="text-2xl font-bold mb-2 text-black">Adventure Awaits</h2>
               <p className="text-base max-w-xs text-center text-black">
@@ -161,10 +170,12 @@ export default function StickyHorizontalTwoUp({
               </p>
             </Panel>
             <Panel>
-              <img
+              <Image
                 src="https://picsum.photos/400/300?random=5"
                 alt="Slide 5"
                 className="rounded-xl mb-4"
+                height={400}
+                width={300}
               />
               <h2 className="text-2xl font-bold mb-2 text-black">Peaceful Retreats</h2>
               <p className="text-base max-w-xs text-center text-black">
@@ -180,10 +191,10 @@ export default function StickyHorizontalTwoUp({
 }
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-    return (
-        <div className={`h-full w-full flex flex-col items-center justify-center text-white text-3xl font-bold p-6 ${className}`}>
-            {children}
-        </div>
-    );
+  return (
+    <div className={`h-full w-full flex flex-col items-center justify-center text-white text-3xl font-bold p-6 ${className}`}>
+      {children}
+    </div>
+  );
 }
 export { Panel };
