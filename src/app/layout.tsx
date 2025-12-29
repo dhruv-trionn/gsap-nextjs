@@ -4,7 +4,6 @@ import ScrollSmootherProvider from "@/components/ScrollSmoother";
 import SplashCursor from "@/components/SplashCursor";
 import type { Metadata } from "next";
 import "./globals.css";
-import Template from "./template";
 
 export const metadata: Metadata = {
   title: "GSAP Animation",
@@ -22,9 +21,7 @@ export default function RootLayout({
         <ScrollSmootherProvider>
           <>
             <Navbar />
-            <Template>
               {children}
-            </Template>
             <CursorFollower />
             <SplashCursor />
           </>
