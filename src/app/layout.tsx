@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import PageTransition from "@/components/PageTransition";
 import SplashCursor from "@/components/SplashCursor";
+import CursorFollower from "@/components/CursorFollower";
 
 export const metadata: Metadata = {
   title: "GSAP Animation",
@@ -20,6 +21,7 @@ export default function RootLayout({
         <ScrollSmootherProvider>
           <PageTransition />
           {children}
+            <CursorFollower />
           <SplashCursor />
         </ScrollSmootherProvider>
       </body>
