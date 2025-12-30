@@ -69,15 +69,7 @@ const Page = () => {
         });
 
         tl.add("pinStart");
-
-        // ==============================
-        // SPLIT OVERLAY TEXT (FADE OUT)
-        // ==============================
-        const overlaySplit = new SplitText(".overlay-text", {
-            type: "words",
-            smartWrap: true,
-        });
-
+    
         // ==============================
         // SPLIT HIDDEN TEXT (FADE IN + BLUR)
         // ==============================
@@ -96,8 +88,10 @@ const Page = () => {
         // --------------------------------
         // 1️⃣ OVERLAY TEXT FADE OUT (COMPLETE FIRST)
         // --------------------------------
+
+        const overlayText = document.querySelector('.overlay-text')!;
         tl.to(
-            overlaySplit.words,
+            overlayText?.querySelectorAll('.words'),
             {
                 autoAlpha: 0,
                 y: -20,
@@ -145,7 +139,6 @@ const Page = () => {
         }
 
         return () => {
-            overlaySplit.revert();
             hiddenSplit.revert();
         };
     }, { scope: containerRef, dependencies: [STRIPE_COUNT] });
@@ -198,8 +191,8 @@ const Page = () => {
                                 <BlurTextReveal
                                     as="p"
                                     text={`Trionn® is an international digital studio from India that helps brands grow using strategy-led design and technology.`}
-                                    animationType="lines"
-                                    stagger={0.05}
+                                    animationType="words"
+                                    stagger={0.09}
                                     className='overlay-text absolute w-full'
                                 />
                                 <p className='hidden-overlay-text' >
