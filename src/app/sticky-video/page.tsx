@@ -8,17 +8,28 @@ import { useRef } from 'react'
 gsap.registerPlugin(ScrollTrigger)
 
 const Page = () => {
-    const videoMaskRef = useRef<HTMLDivElement>(null)
+    const sectionRef = useRef<HTMLDivElement>(null);
+    const sliderRef = useRef<HTMLDivElement>(null);
+    const videoMaskRef = useRef<HTMLDivElement>(null);
+
 
     useGSAP(() => {
 
+        if (!sectionRef.current || !sliderRef.current || !videoMaskRef.current) {
+            return
+        };
+
         const panels = gsap.utils.toArray('.slider-item');
+
+        const scrollDistance =
+            sliderRef.current.scrollWidth - window.innerWidth;
+
 
         gsap.timeline({
             scrollTrigger: {
                 trigger: '.sticky-section',
                 start: 'top top',
-                end: `+=${(panels.length) * 100}%`,
+                end: () => `+=${scrollDistance}`,
                 pin: true,
                 scrub: true,
                 markers: true,
@@ -36,13 +47,13 @@ const Page = () => {
             )
             .to(panels, {
                 ease: 'none',
-                xPercent: -65 * (panels.length - 1),
+                x: () => -scrollDistance,
             })
             .to('.main-video', {
                 yPercent: -42,
-                ease:'none'
+                ease: 'none'
             }, "<")
-            
+
 
     }, [])
 
@@ -52,7 +63,7 @@ const Page = () => {
                 Spacer
             </section>
 
-            <section className="sticky-section relative min-h-screen overflow-hidden">
+            <section ref={sectionRef} className="sticky-section relative min-h-screen overflow-hidden">
                 {/* 🔥 VIDEO MASK */}
                 <div
                     ref={videoMaskRef}
@@ -97,7 +108,7 @@ const Page = () => {
                             </div>
                         </div>
                         {/* Slider */}
-                        <div className='absolute bottom-12 overflow-x-hidden' >
+                        <div ref={sliderRef} className='absolute bottom-12 overflow-x-hidden px-12' >
                             <div className='flex items-center justify-center gap-6 flex-nowrap' >
                                 <div className="slider-item border-r-2 border-white min-w-[600px] flex flex-col gap-40">
                                     <div>
