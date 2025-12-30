@@ -48,23 +48,32 @@ const CylinderScroll = () => {
             });
         });
 
+        const tl = gsap.timeline({
+            scrollTrigger: {
+                trigger: containerRef.current,
+                start: "top top", // Starts when container enters screen
+                end: "+=200%",   // Ends when container leaves screen
+                scrub: 1.2,            // Smoothly follows scroll
+                pin: true,
+            }
+        })
+
+        tl.add('pinned');
         // 2. Create the scrolling rotation (The "No-Pin" Logic)
-        gsap.fromTo(textWrapperRef.current,
+        tl.fromTo(textWrapperRef.current,
             {
                 rotateX: -100
             }, // Start angle (tilted up)
             {
                 rotateX: 160,    // End angle (tilted down)
                 ease: 'none',
-                scrollTrigger: {
-                    trigger: containerRef.current,
-                    start: "top top", // Starts when container enters screen
-                    end: "+=200%",   // Ends when container leaves screen
-                    scrub: 1.2,            // Smoothly follows scroll
-                    pin: true,
-                }
-            }
+
+            }, "pinned+=0.3"
         );
+
+        // tl.to('.main-video',{
+        //     yPercent:-10,
+        // })
 
         return () => {
             ScrollTrigger.getAll().forEach(t => t.kill());
