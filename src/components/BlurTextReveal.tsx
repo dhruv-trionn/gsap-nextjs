@@ -53,6 +53,7 @@ const BlurTextReveal = ({
 
     const split = new SplitText(textRef.current, {
       type: 'chars,words,lines',
+      smartWrap:true,
     });
 
     const targets =
