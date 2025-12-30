@@ -71,7 +71,9 @@ const HorizontalScroller = ({
         );
 
         return () => mm.revert();
-    }, []);
+    }, {
+        scope:sectionRef
+    });
 
     return (
         <section ref={sectionRef} className={`${className}`} >

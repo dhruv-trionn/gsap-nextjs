@@ -53,18 +53,18 @@ const BlurTextReveal = ({
 
     const split = new SplitText(textRef.current, {
       type: 'chars,words,lines',
-      smartWrap:true,
-      wordsClass:'words',
-      charsClass:'chars',
-      linesClass:'lines'
+      smartWrap: true,
+      wordsClass: 'words',
+      charsClass: 'chars',
+      linesClass: 'lines'
     });
 
     const targets =
       animationType === 'lines'
         ? split.lines
         : animationType === 'chars'
-        ? split.chars
-        : split.words;
+          ? split.chars
+          : split.words;
 
     gsap.set([textRef.current, targets], {
       autoAlpha: 0,
@@ -116,7 +116,7 @@ const BlurTextReveal = ({
       className={className}
       dangerouslySetInnerHTML={html ? { __html: html } : undefined}
     >
-      {!html && text}
+      {!html ? text : null}
     </Tag>
   );
 };
