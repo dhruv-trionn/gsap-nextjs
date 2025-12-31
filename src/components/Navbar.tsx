@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import BlurReveal from './BlurReveal'
 
 const menus = [
   { label: 'Card Slice', href: '/card-slice' },
@@ -36,16 +37,18 @@ const Navbar = () => {
               const isActive = pathname === menu.href
 
               return (
-                <Link
-                  key={menu.href}
-                  href={menu.href}
-                  className={`text-sm font-medium transition-colors ${isActive
-                    ? 'text-blue-600 border-b-2 border-blue-600'
-                    : 'text-gray-600 hover:text-blue-600'
-                    }`}
-                >
-                  {menu.label}
-                </Link>
+                <BlurReveal key={menu.href}>
+                  <Link
+                    key={menu.href}
+                    href={menu.href}
+                    className={`text-sm font-medium transition-colors ${isActive
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-600 hover:text-blue-600'
+                      }`}
+                  >
+                    {menu.label}
+                  </Link>
+                </BlurReveal>
               )
             })}
           </div>
