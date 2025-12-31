@@ -5,13 +5,15 @@ import gsap from 'gsap';
 import { SplitText } from 'gsap/SplitText';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import React, { useRef } from 'react';
+import Stripe from '@/components/Stripe';
+import Marquee from '@/components/MarqueeV2';
 
 gsap.registerPlugin(ScrollTrigger, SplitText);
 
 const Page = () => {
     // --- CONFIGURATION ---
     const STRIPE_COUNT = 6;
-    const STAGGER = 0.1;
+    const STAGGER = 0.2;
     // ---------------------
 
     const containerRef = useRef<HTMLDivElement>(null);
@@ -57,78 +59,193 @@ const Page = () => {
         };
     };
 
+    // useGSAP(() => {
+    //     const tl = gsap.timeline({
+    //         scrollTrigger: {
+    //             trigger: containerRef.current,
+    //             start: "top top",
+    //             end: "+=150%",
+    //             pin: true,
+    //             scrub: 1.2,
+    //         },
+    //     });
+
+    //     tl.add("pinStart");
+
+    //     // ==============================
+    //     // SPLIT HIDDEN TEXT (FADE IN + BLUR)
+    //     // ==============================
+    //     const hiddenSplit = new SplitText(".hidden-overlay-text", {
+    //         type: "words",
+    //         smartWrap: true,
+    //     });
+
+    //     gsap.set(hiddenSplit.words, {
+    //         autoAlpha: 0,
+    //         filter: "blur(12px)",
+    //         y: 20,
+    //         force3D: true,
+    //     });
+
+    //     // --------------------------------
+    //     // 1️⃣ OVERLAY TEXT FADE OUT (COMPLETE FIRST)
+    //     // --------------------------------
+
+    //     const overlayText = document.querySelector('.overlay-text')!;
+    //     tl.to(
+    //         overlayText?.querySelectorAll('.words'),
+    //         {
+    //             autoAlpha: 0,
+    //             y: -20,
+    //             filter: "blur(12px)",
+    //             stagger: {
+    //                 each: 0.05,
+    //                 from: "random",
+    //             },
+    //             ease: "none",
+    //         },
+    //         "pinStart+=0.3"
+    //     );
+
+    //     // --------------------------------
+    //     // 2️⃣ HIDDEN TEXT FADE IN (STARTS AFTER 1️⃣ ENDS)
+    //     // --------------------------------
+    //     tl.to(hiddenSplit.words, {
+    //         autoAlpha: 1,
+    //         filter: "blur(0px)",
+    //         y: 0,
+    //         stagger: {
+    //             each: 0.06,
+    //             from: "random",
+    //         },
+    //         ease: "power2.out",
+    //     });
+
+    //     // --------------------------------
+    //     // LABEL AFTER TEXT REVEAL
+    //     // --------------------------------
+    //     tl.add("textRevealDone");
+
+    //     // --------------------------------
+    //     // STRIPE ANIMATION
+    //     // --------------------------------
+    //     for (let i = 0; i < STRIPE_COUNT; i++) {
+    //         tl.to(
+    //             contentRef.current,
+    //             {
+    //                 [`--h${i}`]: "0%",
+    //                 ease: "power1.inOut",
+    //             },
+    //             `textRevealDone+=${i * STAGGER}`
+    //         );
+    //     }
+
+    //     return () => {
+    //         hiddenSplit.revert();
+    //     };
+    // }, { scope: containerRef, dependencies: [STRIPE_COUNT] });
+
+
     useGSAP(() => {
-        const tl = gsap.timeline({
+
+        gsap.config({ force3D: true });
+
+        const master = gsap.timeline({
             scrollTrigger: {
                 trigger: containerRef.current,
                 start: "top top",
-                end: "+=150%",
+                end: "+=400%",
                 pin: true,
-                scrub: 1.2,
+                scrub: 1,
+                anticipatePin: 1,
+                snap: {
+                    snapTo: "labels",
+                    duration: 0.4,
+                    ease: "power1.inOut",
+                }
             },
         });
 
-        tl.add("pinStart");
-    
         // ==============================
-        // SPLIT HIDDEN TEXT (FADE IN + BLUR)
+        // SPLIT TEXT
         // ==============================
+        const overlaySplit = new SplitText(".overlay-text", {
+            type: "words",
+            smartWrap: true,
+        });
+
         const hiddenSplit = new SplitText(".hidden-overlay-text", {
             type: "words",
             smartWrap: true,
         });
 
-        gsap.set(hiddenSplit.words, {
+        gsap.set(overlaySplit.words, {
             autoAlpha: 0,
-            filter: "blur(12px)",
             y: 20,
-            force3D: true,
+            filter: "blur(12px)",
         });
 
-        // --------------------------------
-        // 1️⃣ OVERLAY TEXT FADE OUT (COMPLETE FIRST)
-        // --------------------------------
+        gsap.set(hiddenSplit.words, {
+            autoAlpha: 0,
+            y: 20,
+            filter: "blur(12px)",
+        });
 
-        const overlayText = document.querySelector('.overlay-text')!;
-        tl.to(
-            overlayText?.querySelectorAll('.words'),
-            {
-                autoAlpha: 0,
-                y: -20,
-                filter: "blur(12px)",
-                stagger: {
-                    each: 0.05,
-                    from: "random",
-                },
-                ease: "none",
-            },
-            "pinStart+=0.3"
-        );
-
-        // --------------------------------
-        // 2️⃣ HIDDEN TEXT FADE IN (STARTS AFTER 1️⃣ ENDS)
-        // --------------------------------
-        tl.to(hiddenSplit.words, {
+        // ==============================
+        // 1️⃣ OVERLAY TEXT IN
+        // ==============================
+        const overlayIn = gsap.timeline();
+        overlayIn.to(overlaySplit.words, {
             autoAlpha: 1,
-            filter: "blur(0px)",
             y: 0,
+            filter: "blur(0px)",
+            stagger: {
+                each: 0.05,
+                from: "random",
+            },
+            duration: 1.2,
+            ease: "power2.out",
+        });
+
+        // ==============================
+        // 2️⃣ OVERLAY TEXT OUT
+        // ==============================
+        const overlayOut = gsap.timeline();
+        overlayOut.to(overlaySplit.words, {
+            autoAlpha: 0,
+            y: -20,
+            filter: "blur(12px)",
+            stagger: {
+                each: 0.05,
+                from: "random",
+            },
+            duration: 1.2,
+            ease: "none",
+        });
+
+        // ==============================
+        // 3️⃣ HIDDEN TEXT IN
+        // ==============================
+        const hiddenIn = gsap.timeline();
+        hiddenIn.to(hiddenSplit.words, {
+            autoAlpha: 1,
+            y: 0,
+            filter: "blur(0px)",
             stagger: {
                 each: 0.06,
                 from: "random",
             },
+            duration: 1.4,
             ease: "power2.out",
         });
 
-        // --------------------------------
-        // LABEL AFTER TEXT REVEAL
-        // --------------------------------
-        tl.add("textRevealDone");
+        // ==============================
+        // 4️⃣ STRIPES
+        // ==============================
+        const stripes = gsap.timeline();
 
-        // --------------------------------
-        // STRIPE ANIMATION
-        // --------------------------------
         for (let i = 0; i < STRIPE_COUNT; i++) {
-            tl.to(
+            stripes.to(
                 contentRef.current,
                 {
                     [`--h${i}`]: "0%",
@@ -138,7 +255,30 @@ const Page = () => {
             );
         }
 
+        // for (let i = 0; i < STRIPE_COUNT; i++) {
+        //     stripes.to(
+        //         containerRef.current,
+        //         {
+        //             [`--h${i}`]: "0%",
+        //             duration: 0.6,
+        //             ease: "power1.inOut",
+        //         },
+        //         i * STAGGER
+        //     );
+        // }
+
+        // ==============================
+        // MASTER SEQUENCE
+        // ==============================
+        master
+            .add(overlayIn)
+            .add(overlayOut)
+            .add(hiddenIn)
+            .add("textRevealDone")
+            .add(stripes);
+
         return () => {
+            overlaySplit.revert();
             hiddenSplit.revert();
         };
     }, { scope: containerRef, dependencies: [STRIPE_COUNT] });
