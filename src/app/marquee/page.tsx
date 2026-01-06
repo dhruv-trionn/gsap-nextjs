@@ -30,11 +30,11 @@ const Page = () => {
                 Spacer
             </section>
             <div className='min-h-screen bg-neutral-600 flex flex-col items-center justify-center'>
-                <Marquee speed={3} className='mb-20' gap={40} >
+                <Marquee speed={5} className='mb-20' gap={40} defaultPaused stopSpeed={0.01}  >
                     <h2 className="text-7xl font-bold">Creative Studio</h2>
                 </Marquee>
 
-                <Marquee direction="right" speed={2} gap={40} pauseOnHover>
+                <Marquee direction="right" speed={2} gap={40} draggable pauseOnHover>
                     <div className="flex gap-10">
                         {
                             slides.map((slide, i) => {
@@ -46,7 +46,7 @@ const Page = () => {
                     </div>
                 </Marquee>
 
-                <Marquee direction="left" speed={4} gap={40} className='mt-20' draggable>
+                <Marquee direction="left" speed={4} gap={40} className='mt-20' >
                     <div className="flex gap-10">
                         {
                             slides.map((slide, i) => {

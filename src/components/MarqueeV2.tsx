@@ -17,6 +17,8 @@ interface MarqueeProps {
   className?: string;
   draggable?: boolean;
   pauseOnHover?: boolean;
+  defaultPaused?: boolean;
+  stopSpeed?: number;
 }
 
 export default function Marquee({
@@ -27,6 +29,8 @@ export default function Marquee({
   className = "",
   draggable = false,
   pauseOnHover = false,
+  defaultPaused = false,
+  stopSpeed = 0.5,
 }: MarqueeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -36,7 +40,14 @@ export default function Marquee({
   const itemWidth = useRef(0);
 
   const raf = useRef<number | null>(null);
-  const paused = useRef(false);
+
+  // State refs
+  const isHovering = useRef(false);
+  const isDragging = useRef(false);
+
+  // 0 = stopped, 1 = full speed. 
+  // If defaultPaused is true, we start at 0, otherwise 1.
+  const velocityFactor = useRef(defaultPaused ? 0 : 1);
 
   useGSAP(() => {
     if (!containerRef.current || !trackRef.current) return;
@@ -45,11 +56,11 @@ export default function Marquee({
     const track = trackRef.current!;
     const original = track.children[0] as HTMLElement;
 
+    // 1. Setup Content
     original.style.marginRight = `${gap}px`;
     itemWidth.current = original.offsetWidth + gap;
 
-    const clones =
-      Math.ceil(container.offsetWidth / itemWidth.current) + 2;
+    const clones = Math.ceil(container.offsetWidth / itemWidth.current) + 2;
 
     for (let i = 0; i < clones; i++) {
       const clone = original.cloneNode(true) as HTMLElement;
@@ -57,14 +68,17 @@ export default function Marquee({
       track.appendChild(clone);
     }
 
-    // Scroll direction control
+    // 2. Scroll Direction Control
     ScrollTrigger.create({
       trigger: document.documentElement,
       start: "top bottom",
       end: "bottom top",
       onUpdate(self) {
-        dir.current = self.direction === 1 ? 1 : -1;
-        if (direction === "left") dir.current *= -1;
+        // Only update direction if we aren't dragging
+        if (!isDragging.current) {
+          dir.current = self.direction === 1 ? 1 : -1;
+          if (direction === "left") dir.current *= -1;
+        }
       },
     });
 
@@ -76,21 +90,39 @@ export default function Marquee({
       }
     };
 
+    // 3. The Animation Loop
     const animate = () => {
-      if (!paused.current) {
-        x.current += speed * dir.current;
-        wrap();
-        gsap.set(track, { x: x.current });
+      if (!isDragging.current) {
+        // Determine Target Speed based on configuration and state
+        let targetFactor = 1;
+
+        if (defaultPaused) {
+          // If defaultPaused: Run only when hovering
+          targetFactor = isHovering.current ? 1 : 0;
+        } else if (pauseOnHover) {
+          // If NOT defaultPaused (standard): Stop when hovering
+          targetFactor = isHovering.current ? 0 : 1;
+        }
+
+        // LERP (Linear Interpolation) for smooth start/stop
+        // 0.05 is the "friction" - lower = slower stop, higher = faster stop
+        velocityFactor.current += (targetFactor - velocityFactor.current) * stopSpeed;
+
+        // Optimization: stop calculation if completely stopped
+        if (Math.abs(velocityFactor.current) > 0.001) {
+          x.current += speed * dir.current * velocityFactor.current;
+          wrap();
+          gsap.set(track, { x: x.current });
+        }
       }
+
       raf.current = requestAnimationFrame(animate);
     };
 
     animate();
 
+    // 4. Draggable Logic
     if (draggable) {
-      // ---------------------------
-      // DRAGGABLE
-      // ---------------------------
       Draggable.create(track, {
         type: "x",
         inertia: true,
@@ -98,11 +130,13 @@ export default function Marquee({
         throwResistance: 2500,  // higher = slower throw
 
         onPress() {
-          paused.current = true;
+          isDragging.current = true;
           gsap.killTweensOf(track);
         },
         onDrag() {
           x.current = this.x;
+          // Calculate direction based on drag
+          dir.current = this.deltaX > 0 ? 1 : -1;
           wrap();
         },
         onThrowUpdate() {
@@ -110,37 +144,37 @@ export default function Marquee({
           wrap();
         },
         onRelease() {
-          paused.current = false;
+          // Resume automatic movement logic
+          isDragging.current = false;
         },
       });
     }
 
-    if (pauseOnHover) {
-      // ---------------------------
-      // HOVER PAUSE
-      // ---------------------------
-      container.addEventListener("mouseenter", () => {
-        paused.current = true;
-      });
+    // 5. Hover Listeners
+    const handleMouseEnter = () => { isHovering.current = true; };
+    const handleMouseLeave = () => { isHovering.current = false; };
 
-      container.addEventListener("mouseleave", () => {
-        paused.current = false;
-      });
+    // We attach these if either feature is enabled
+    if (pauseOnHover || defaultPaused) {
+      container.addEventListener("mouseenter", handleMouseEnter);
+      container.addEventListener("mouseleave", handleMouseLeave);
     }
 
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
+      container.removeEventListener("mouseenter", handleMouseEnter);
+      container.removeEventListener("mouseleave", handleMouseLeave);
     };
 
   }, {
     scope: containerRef,
-    dependencies: [direction, speed, gap, draggable, pauseOnHover]
+    dependencies: [direction, speed, gap, draggable, pauseOnHover, defaultPaused]
   });
 
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden w-full ${draggable ? "cursor-grab active:cursor-grabbing" : ""}   ${className}`}
+      className={`relative overflow-hidden w-full ${draggable ? "cursor-grab active:cursor-grabbing" : ""} ${className}`}
     >
       <div ref={trackRef} className="flex whitespace-nowrap will-change-transform">
         <div className="shrink-0">{children}</div>
