@@ -1,10 +1,11 @@
 "use client";
 
-import { ReactElement, useLayoutEffect, useRef } from "react";
+import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
-import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { InertiaPlugin } from "gsap/InertiaPlugin";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Draggable } from "gsap/all";
+import { ReactElement, useRef } from "react";
 
 gsap.registerPlugin(ScrollTrigger, Draggable, InertiaPlugin);
 
@@ -14,6 +15,8 @@ interface MarqueeProps {
   direction?: "left" | "right";
   gap?: number;
   className?: string;
+  draggable?: boolean;
+  pauseOnHover?: boolean;
 }
 
 export default function Marquee({
@@ -22,6 +25,8 @@ export default function Marquee({
   direction = "left",
   gap = 40,
   className = "",
+  draggable = false,
+  pauseOnHover = false,
 }: MarqueeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
@@ -33,56 +38,56 @@ export default function Marquee({
   const raf = useRef<number | null>(null);
   const paused = useRef(false);
 
-  useLayoutEffect(() => {
+  useGSAP(() => {
     if (!containerRef.current || !trackRef.current) return;
 
-    const ctx = gsap.context(() => {
-      const container = containerRef.current!;
-      const track = trackRef.current!;
-      const original = track.children[0] as HTMLElement;
+    const container = containerRef.current!;
+    const track = trackRef.current!;
+    const original = track.children[0] as HTMLElement;
 
-      original.style.marginRight = `${gap}px`;
-      itemWidth.current = original.offsetWidth + gap;
+    original.style.marginRight = `${gap}px`;
+    itemWidth.current = original.offsetWidth + gap;
 
-      const clones =
-        Math.ceil(container.offsetWidth / itemWidth.current) + 2;
+    const clones =
+      Math.ceil(container.offsetWidth / itemWidth.current) + 2;
 
-      for (let i = 0; i < clones; i++) {
-        const clone = original.cloneNode(true) as HTMLElement;
-        clone.style.marginRight = `${gap}px`;
-        track.appendChild(clone);
+    for (let i = 0; i < clones; i++) {
+      const clone = original.cloneNode(true) as HTMLElement;
+      clone.style.marginRight = `${gap}px`;
+      track.appendChild(clone);
+    }
+
+    // Scroll direction control
+    ScrollTrigger.create({
+      trigger: document.documentElement,
+      start: "top bottom",
+      end: "bottom top",
+      onUpdate(self) {
+        dir.current = self.direction === 1 ? 1 : -1;
+        if (direction === "left") dir.current *= -1;
+      },
+    });
+
+    const wrap = () => {
+      if (x.current <= -itemWidth.current) {
+        x.current += itemWidth.current;
+      } else if (x.current >= 0) {
+        x.current -= itemWidth.current;
       }
+    };
 
-      // Scroll direction control
-      ScrollTrigger.create({
-        trigger: document.documentElement,
-        start: "top bottom",
-        end: "bottom top",
-        onUpdate(self) {
-          dir.current = self.direction === 1 ? 1 : -1;
-          if (direction === "left") dir.current *= -1;
-        },
-      });
+    const animate = () => {
+      if (!paused.current) {
+        x.current += speed * dir.current;
+        wrap();
+        gsap.set(track, { x: x.current });
+      }
+      raf.current = requestAnimationFrame(animate);
+    };
 
-      const wrap = () => {
-        if (x.current <= -itemWidth.current) {
-          x.current += itemWidth.current;
-        } else if (x.current >= 0) {
-          x.current -= itemWidth.current;
-        }
-      };
+    animate();
 
-      const animate = () => {
-        if (!paused.current) {
-          x.current += speed * dir.current;
-          wrap();
-          gsap.set(track, { x: x.current });
-        }
-        raf.current = requestAnimationFrame(animate);
-      };
-
-      animate();
-
+    if (draggable) {
       // ---------------------------
       // DRAGGABLE
       // ---------------------------
@@ -108,7 +113,9 @@ export default function Marquee({
           paused.current = false;
         },
       });
+    }
 
+    if (pauseOnHover) {
       // ---------------------------
       // HOVER PAUSE
       // ---------------------------
@@ -119,18 +126,21 @@ export default function Marquee({
       container.addEventListener("mouseleave", () => {
         paused.current = false;
       });
-    }, containerRef);
+    }
 
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
-      ctx.revert();
     };
-  }, [direction, speed, gap]);
+
+  }, {
+    scope: containerRef,
+    dependencies: [direction, speed, gap, draggable, pauseOnHover]
+  });
 
   return (
     <div
       ref={containerRef}
-      className={`relative overflow-hidden w-full cursor-grab active:cursor-grabbing ${className}`}
+      className={`relative overflow-hidden w-full ${draggable ? "cursor-grab active:cursor-grabbing" : ""}   ${className}`}
     >
       <div ref={trackRef} className="flex whitespace-nowrap will-change-transform">
         <div className="shrink-0">{children}</div>

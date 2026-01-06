@@ -34,7 +34,7 @@ const Page = () => {
                     <h2 className="text-7xl font-bold">Creative Studio</h2>
                 </Marquee>
 
-                <Marquee direction="right" speed={2} gap={40}>
+                <Marquee direction="right" speed={2} gap={40} pauseOnHover>
                     <div className="flex gap-10">
                         {
                             slides.map((slide, i) => {
@@ -46,7 +46,7 @@ const Page = () => {
                     </div>
                 </Marquee>
 
-                <Marquee direction="left" speed={4} gap={40} className='mt-20'>
+                <Marquee direction="left" speed={4} gap={40} className='mt-20' draggable>
                     <div className="flex gap-10">
                         {
                             slides.map((slide, i) => {
