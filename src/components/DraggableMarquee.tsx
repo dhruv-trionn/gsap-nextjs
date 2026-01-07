@@ -1,12 +1,12 @@
 "use client";
 
-import { useGSAP } from "@gsap/react";
-import gsap from "gsap";
-import { Draggable, InertiaPlugin, ScrollTrigger } from "gsap/all";
 import React, { useRef } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
+import { Draggable, InertiaPlugin, ScrollTrigger } from "gsap/all";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(Draggable, ScrollTrigger, InertiaPlugin);
+  gsap.registerPlugin(Draggable, InertiaPlugin, ScrollTrigger);
 }
 
 interface MarqueeProps {
@@ -16,8 +16,6 @@ interface MarqueeProps {
   className?: string;
   draggable?: boolean;
   pauseOnHover?: boolean;
-  dragResistance?: number;
-  throwResistance?: number;
 }
 
 export default function Marquee({
@@ -27,32 +25,27 @@ export default function Marquee({
   className = "",
   draggable = false,
   pauseOnHover = false,
-  dragResistance = 0.5, // Reduced for smoother feel
-  throwResistance = 1000,
 }: MarqueeProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tlRef = useRef<gsap.core.Timeline | null>(null);
-  const isHovered = useRef(false); // Track hover state manually
+  const isHovered = useRef(false);
 
   useGSAP(
     () => {
-      const items = gsap.utils.toArray(".marquee-item") as HTMLElement[];
-      const effectiveSpeed = speed * (direction === "right" ? -1 : 1);
+      const items = gsap.utils.toArray<HTMLElement>(".marquee-item");
+      const dir = direction === "right" ? -1 : 1;
 
       const tl = horizontalLoop(items, {
-        speed: effectiveSpeed,
+        speed: speed * dir,
         repeat: -1,
-        draggable: draggable,
-        dragResistance,
-        throwResistance,
-        // Pass the hover state to the loop helper
+        draggable,
         onDragRelease: () => {
           if (pauseOnHover && isHovered.current) {
-            gsap.to(tl, { timeScale: 0, duration: 0.5 });
+            gsap.to(tl, { timeScale: 0, duration: 0.3 });
           } else {
-            gsap.to(tl, { timeScale: effectiveSpeed, duration: 0.5 });
+            gsap.to(tl, { timeScale: speed * dir, duration: 0.3 });
           }
-        }
+        },
       });
 
       tlRef.current = tl;
@@ -61,45 +54,51 @@ export default function Marquee({
         trigger: document.documentElement,
         start: 0,
         end: "max",
-        onUpdate: (self) => {
-          // Only change direction via scroll if not dragging
-          const isDragging = Draggable.get(items[0].parentNode as any)?.isDragging;
-          if (!isDragging) {
-            const dir = self.direction === 1 ? 1 : -1;
-            gsap.to(tl, { timeScale: dir * Math.abs(effectiveSpeed), overwrite: true });
-          }
+        onUpdate(self) {
+          const d = self.direction === 1 ? 1 : -1;
+          gsap.to(tl, {
+            timeScale: Math.abs(speed) * d,
+            overwrite: true,
+          });
         },
       });
     },
     { scope: containerRef, dependencies: [speed, direction, draggable] }
   );
 
-  const handleMouseEnter = () => {
+  const onEnter = () => {
     isHovered.current = true;
     if (pauseOnHover && tlRef.current) {
-      gsap.to(tlRef.current, { timeScale: 0, duration: 0.5, overwrite: true });
+      gsap.to(tlRef.current, { timeScale: 0, duration: 0.3 });
     }
   };
 
-  const handleMouseLeave = () => {
+  const onLeave = () => {
     isHovered.current = false;
     if (pauseOnHover && tlRef.current) {
-      const s = speed * (direction === "right" ? -1 : 1);
-      gsap.to(tlRef.current, { timeScale: s, duration: 0.5, overwrite: true });
+      const dir = direction === "right" ? -1 : 1;
+      gsap.to(tlRef.current, {
+        timeScale: speed * dir,
+        duration: 0.3,
+      });
     }
   };
 
   return (
     <div
       ref={containerRef}
-      className={`relative w-full overflow-hidden ${className} ${draggable ? "cursor-grab active:cursor-grabbing" : ""
-        }`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      className={`relative w-full overflow-hidden ${className} ${
+        draggable ? "cursor-grab active:cursor-grabbing" : ""
+      }`}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
     >
-      <div className="flex flex-nowrap w-fit">
+      <div className="flex w-fit">
         {[...Array(5)].map((_, i) => (
-          <div key={i} className="marquee-item flex-shrink-0 flex gap-[40px] pr-[40px]">
+          <div
+            key={i}
+            className="marquee-item flex-shrink-0 flex gap-[40px] pr-[40px]"
+          >
             {children}
           </div>
         ))}
@@ -108,90 +107,133 @@ export default function Marquee({
   );
 }
 
-// Modified Loop Helper to accept the release callback
-function horizontalLoop(items: HTMLElement[], config: any) {
-  items = gsap.utils.toArray(items);
-  config = config || {};
-  let tl = gsap.timeline({
-    repeat: config.repeat,
-    paused: config.paused,
-    defaults: { ease: "none" },
-    onReverseComplete: () => {
-      tl.totalTime(tl.rawTime() + tl.duration() * 100)
-    },
-  }),
-    length = items.length,
-    startX = items[0].offsetLeft,
-    times: any[] = [],
-    widths: any[] = [],
-    xPercents: any[] = [],
-    pixelsPerSecond = (config.speed || 1) * 100,
-    totalWidth: number,
-    curX,
-    distanceToStart,
-    distanceToLoop,
-    item,
-    i;
+/* -------------------------------------------------------------------------- */
+/*                                LOOP HELPER                                 */
+/* -------------------------------------------------------------------------- */
 
-  gsap.set(items, {
-    xPercent: (i, el) => {
-      let w = (widths[i] = parseFloat(gsap.getProperty(el, "width", "px") as string));
-      xPercents[i] = ((parseFloat(gsap.getProperty(el, "x", "px") as string) / w) * 100 + Number(gsap.getProperty(el, "xPercent")));
-      return xPercents[i];
+function horizontalLoop(
+  items: HTMLElement[],
+  config: {
+    speed?: number;
+    repeat?: number;
+    draggable?: boolean;
+    onDragRelease?: () => void;
+  }
+) {
+  items = gsap.utils.toArray(items);
+  const pixelsPerSecond = (config.speed || 1) * 100;
+
+  const tl = gsap.timeline({
+    repeat: config.repeat,
+    defaults: { ease: "none", force3D: true },
+    onReverseComplete() {
+      tl.totalTime(tl.rawTime() + tl.duration() * 100);
     },
   });
-  gsap.set(items, { x: 0 });
 
-  totalWidth = items[length - 1].offsetLeft + (xPercents[length - 1] / 100) * widths[length - 1] - startX + items[length - 1].offsetWidth * (gsap.getProperty(items[length - 1], "scaleX") as number) + (parseFloat(config.paddingRight) || 0);
+  const widths: number[] = [];
+  const startX = items[0].offsetLeft;
+  let totalWidth = 0;
 
-  for (i = 0; i < length; i++) {
-    item = items[i];
-    curX = (xPercents[i] / 100) * widths[i];
-    distanceToStart = item.offsetLeft + curX - startX;
-    distanceToLoop = distanceToStart + widths[i] * (gsap.getProperty(item, "scaleX") as number);
-    tl.to(item, { xPercent: ((curX - distanceToLoop) / widths[i]) * 100, duration: distanceToLoop / pixelsPerSecond }, 0)
-      .fromTo(item, { xPercent: ((curX - distanceToLoop + totalWidth) / widths[i]) * 100 }, { xPercent: xPercents[i], duration: (curX - distanceToLoop + totalWidth - curX) / pixelsPerSecond, immediateRender: false }, distanceToLoop / pixelsPerSecond);
-    times[i] = distanceToStart / pixelsPerSecond;
-  }
+  items.forEach((el, i) => {
+    widths[i] = el.offsetWidth;
+    totalWidth += el.offsetWidth;
+  });
 
-  if (config.draggable && typeof Draggable === "function") {
-    let proxy = document.createElement("div"),
-      wrap = gsap.utils.wrap(0, 1),
-      ratio: number,
-      startProgress: number,
-      draggable: Draggable,
-      align = () => {
-        tl.progress(wrap(startProgress + (draggable.startX - draggable.x) * ratio))
-      };
+  gsap.set(items, { x: 0, force3D: true });
 
-    draggable = Draggable.create(proxy, {
-      trigger: items[0].parentNode as HTMLElement,
-      type: "x",
-      inertia: true,
-      dragResistance: 0.08,
-      throwResistance: 2500,
-      minDuration: 0.5,
-      maxDuration: 0.8,
-      onPress() {
-        startProgress = tl.progress();
-        tl.progress(0);
-        tl.progress(startProgress);
-        gsap.killTweensOf(tl);
-        tl.timeScale(0);
-        ratio = 1 / totalWidth;
+  items.forEach((item, i) => {
+    const distanceToStart = item.offsetLeft - startX;
+    const distanceToLoop = distanceToStart + widths[i];
+
+    tl.to(
+      item,
+      {
+        x: `-=${distanceToLoop}`,
+        duration: distanceToLoop / pixelsPerSecond,
       },
-      onDrag: () => {
-        align()
+      0
+    ).fromTo(
+      item,
+      { x: totalWidth - distanceToLoop },
+      {
+        x: 0,
+        duration: (totalWidth - distanceToLoop) / pixelsPerSecond,
+        immediateRender: false,
       },
-      onThrowUpdate: () => {
-        align()
-      },
-      onRelease: () => {
-        // This is the fix: call a callback to check hover state
-        if (config.onDragRelease) config.onDragRelease();
-      }
-    })[0];
-  }
+      distanceToLoop / pixelsPerSecond
+    );
+  });
+
+  /* ------------------------------ DRAGGABLE ------------------------------ */
+
+  if (config.draggable) {
+  const proxy = document.createElement("div");
+
+  let startProgress = 0;
+  let startX = 0;
+
+  let targetProgress = 0;
+  let currentProgress = 0;
+
+  let isDragging = false;
+  let isGliding = false;
+
+  const ratio = 1 / totalWidth;
+  const dragMultiplier = 0.75;
+  const smoothness = 0.08;
+
+  const update = () => {
+    if (!isDragging && !isGliding) return;
+
+    currentProgress += (targetProgress - currentProgress) * smoothness;
+    tl.progress(currentProgress);
+
+    // stop glide when close enough
+    if (!isDragging && Math.abs(targetProgress - currentProgress) < 0.0001) {
+      isGliding = false;
+      tl.play(); // ✅ autoplay resumes
+    }
+  };
+
+  gsap.ticker.add(update);
+
+  Draggable.create(proxy, {
+    trigger: items[0].parentNode as HTMLElement,
+    type: "x",
+    inertia: true,
+    dragResistance: 0.12,
+
+    onPress() {
+      isDragging = true;
+      isGliding = false;
+
+      startProgress = tl.progress();
+      currentProgress = startProgress;
+      targetProgress = startProgress;
+
+      startX = this.x;
+
+      tl.pause(); // pause autoplay
+    },
+
+    onDrag() {
+      targetProgress =
+        startProgress + (startX - this.x) * ratio * dragMultiplier;
+    },
+
+    onThrowUpdate() {
+      targetProgress =
+        startProgress + (startX - this.x) * ratio * dragMultiplier;
+    },
+
+    onRelease() {
+      isDragging = false;
+      isGliding = true; // 👈 allow smooth stop
+      config.onDragRelease?.();
+    },
+  });
+}
 
   return tl;
 }
