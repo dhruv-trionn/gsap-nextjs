@@ -181,7 +181,7 @@ function horizontalLoop(
 
   const ratio = 1 / totalWidth;
   const dragMultiplier = 0.75;
-  const smoothness = 0.08;
+  const smoothness = 0.1;
 
   const update = () => {
     if (!isDragging && !isGliding) return;
