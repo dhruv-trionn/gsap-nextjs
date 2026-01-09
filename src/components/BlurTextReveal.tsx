@@ -26,6 +26,16 @@ interface BlurTextRevealProps {
   end?: string;
   once?: boolean;
   scrub?: boolean | number;
+  flicker?: boolean;
+  flickerConfig?: {
+    every?: number;
+    count?: number;
+    blur?: number;
+    fade?: number;
+    duration?: number;
+    stagger?: number;
+  };
+  onCompleteAnimation?: () => void;
 }
 
 const BlurTextReveal = ({
@@ -41,12 +51,58 @@ const BlurTextReveal = ({
   delay = 0,
   from = 'random',
 
-  start = 'top 80%',
-  end = 'bottom 20%',
+  start = 'top 90%',
+  end = 'bottom 10%',
   once = false,
   scrub = false,
+  flicker = false,
+  flickerConfig = {
+    every: 2,
+    count: 2,
+    blur: 8,
+    fade: 0.4,
+    duration: 0.3,
+    stagger:0.5,
+  },
+  onCompleteAnimation
 }: BlurTextRevealProps) => {
   const textRef = useRef<HTMLElement | null>(null);
+
+  const randomCharFlicker = (
+    chars: HTMLElement[],
+    { every = 2, count = 2, blur = 8, fade = 0.4, duration = 0.3, ease = 'power2.out', stagger = 0.5 } = {}
+  ) => {
+    return gsap
+      .timeline({
+        repeat: -1,
+        repeatDelay: every,
+      })
+      .call(() => {
+        const targets = gsap.utils.shuffle(chars).slice(0, count);
+
+        gsap.fromTo(
+          targets,
+          {
+            autoAlpha: fade,
+            filter: `blur(${blur}px)`,
+            stagger: {
+              each:stagger,
+              from:"random"
+            },
+          },
+          {
+            autoAlpha: 1,
+            filter: 'blur(0px)',
+            duration,
+             stagger: {
+              each:stagger,
+              from:"random"
+            },
+            ease,
+          }
+        );
+      });
+  };
 
   useGSAP(() => {
     if (!textRef.current) return;
@@ -56,7 +112,7 @@ const BlurTextReveal = ({
       smartWrap: true,
       wordsClass: 'words',
       charsClass: 'chars',
-      linesClass: 'lines'
+      linesClass: 'lines',
     });
 
     const targets =
@@ -72,6 +128,8 @@ const BlurTextReveal = ({
       force3D: true,
     });
 
+    let flickerTl: gsap.core.Timeline | null = null;
+
     const tl = gsap.timeline({
       delay,
       scrollTrigger: {
@@ -80,6 +138,16 @@ const BlurTextReveal = ({
         end,
         scrub,
         once,
+      },
+      onComplete: () => {
+
+        if (onCompleteAnimation) {
+          onCompleteAnimation();
+        }
+
+        if (flicker) {
+          flickerTl = randomCharFlicker(targets as HTMLElement[], flickerConfig);
+        }
       },
     });
 

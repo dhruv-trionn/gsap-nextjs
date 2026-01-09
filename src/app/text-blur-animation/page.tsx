@@ -1,4 +1,5 @@
 import BlurTextReveal from '@/components/BlurTextReveal';
+import BlurTextRotate from '@/components/BlurTextRotate';
 const Page = () => {
 
 
@@ -12,7 +13,35 @@ const Page = () => {
                     as={'h1'}
                 />
             </section>
+              <div className="banner-title-block grid grid-cols-12 grid-rows-2 gap-x-6 w-full bg-black min-h-screen">
+                    <BlurTextReveal
+                        as="h1"
+                        html="Designed to"
+                        animationType="chars"
+                        stagger={0.08}
+                        className="uppercase mix-blend-difference text-white z-2 col-span-12 text-9xl"
+                        flicker
+                        flickerConfig={{
+                            every: 2,
+                            count: 1,
+                            blur: 12,
+                            fade: 0.2,
+                            duration: 1.5,
+                        }}
+                    />
+
+                    <BlurTextRotate
+                        stagger={0.08}
+                        prefix="mean"
+                        texts={['something.', 'depth.', 'impact.', 'purpose.', 'intention.']}
+                        className="uppercase mix-blend-difference text-white z-2 col-span-10 col-start-3 text-7xl"
+                    />
+                </div>
+
             <div className='min-h-screen w-full flex items-center justify-center flex-col main-section' >
+
+              
+
                 {
                     <>
                         <BlurTextReveal
