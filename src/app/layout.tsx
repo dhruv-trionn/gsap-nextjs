@@ -2,6 +2,7 @@ import Navbar from "@/components/Navbar";
 import ScrollSmootherProvider from "@/components/ScrollSmoother";
 import type { Metadata } from "next";
 import "./globals.css";
+import PageTransition from "./PageTransition";
 
 export const metadata: Metadata = {
   title: "GSAP Animation",
@@ -16,14 +17,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="overflow-x-clip" >
-        <ScrollSmootherProvider>
-          <>
+        <PageTransition>
+          <ScrollSmootherProvider>
             <Navbar />
-              {children}
+            {children}
             {/* <CursorFollower /> */}
             {/* <SplashCursor /> */}
-          </>
-        </ScrollSmootherProvider>
+          </ScrollSmootherProvider>
+        </PageTransition>
       </body>
     </html>
   );
