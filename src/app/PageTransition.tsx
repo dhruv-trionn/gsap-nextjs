@@ -1,9 +1,8 @@
 'use client';
 
-import { useRef } from 'react';
-import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useRef } from 'react';
 import { Overlay } from './overlay';
 
 
@@ -30,18 +29,17 @@ export default function PageTransition({ children }: { children: React.ReactNode
       const overlay = overlayInstance.current;
 
       const handleClick = (e: MouseEvent) => {
+        e.preventDefault();
         const link = e.currentTarget as HTMLAnchorElement;
 
         if (
           isAnimating.current ||
           link.target === '_blank' ||
-          link.origin !== window.location.origin ||
           link.href === window.location.href
         ) {
           return;
         }
 
-        e.preventDefault();
         isAnimating.current = true;
 
         overlay!
@@ -61,7 +59,6 @@ export default function PageTransition({ children }: { children: React.ReactNode
       };
 
       const links = document.querySelectorAll<HTMLAnchorElement>('a[href]');
-      console.log(links,'links');
 
       links.forEach((link) => {
         link.addEventListener('click', handleClick);
@@ -75,6 +72,7 @@ export default function PageTransition({ children }: { children: React.ReactNode
     },
     {
       scope: overlayRef,
+      dependencies: [pathname]
     }
   );
 
