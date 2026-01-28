@@ -1,4 +1,5 @@
 
+import MagneticLinePlus from '@/components/MagneticLinePlus';
 import Marquee from '@/components/MarqueeV2'
 import Image from 'next/image';
 import React from 'react'
@@ -29,6 +30,8 @@ const Page = () => {
             <section className="min-h-screen bg-black text-white flex items-center justify-center">
                 Spacer
             </section>
+            <MagneticLinePlus/>
+            
             <div className='min-h-screen bg-neutral-600 flex flex-col items-center justify-center'>
                 <Marquee speed={5} className='mb-20' gap={40} defaultPaused stopSpeed={0.01}  >
                     <h2 className="text-7xl font-bold">Creative Studio</h2>
