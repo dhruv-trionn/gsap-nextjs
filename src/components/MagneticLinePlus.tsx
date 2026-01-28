@@ -23,6 +23,7 @@ export default function MagneticLinePlus({
   const hitRef = useRef<HTMLDivElement | null>(null);
   const lineRef = useRef<SVGPathElement | null>(null);
   const plusRef = useRef<SVGGElement | null>(null);
+  const plusWrapperRef = useRef<SVGGElement | null>(null);
   const sectionRef = useRef<HTMLDivElement | null>(null);
 
   // --- constants (match your HTML) ---
@@ -48,8 +49,9 @@ export default function MagneticLinePlus({
     const hit = hitRef.current;
     const line = lineRef.current;
     const plus = plusRef.current;
+    const plusWrapper = plusWrapperRef.current;
 
-    if (!svg || !hit || !line || !plus) return;
+    if (!svg || !hit || !line || !plus || !plusWrapper) return;
 
     const state = { mx: W / 2, my: baseY, amp: 0 };
     const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -68,7 +70,6 @@ export default function MagneticLinePlus({
     const lineYAt = (x: number) => baseY + offsetAt(x);
 
     const draw = () => {
-      // build path
       let d = `M ${pts[0].x.toFixed(2)} ${lineYAt(pts[0].x).toFixed(2)}`;
       for (let i = 1; i < pts.length; i++) {
         const x = pts[i].x;
@@ -76,10 +77,14 @@ export default function MagneticLinePlus({
       }
       line.setAttribute("d", d);
 
-      // plus locked to line
       const px = clamp(state.mx, 0, W);
-      plus.setAttribute("transform", `translate(${px.toFixed(2)},${lineYAt(px).toFixed(2)})`);
+
+      plusWrapper.setAttribute(
+        "transform",
+        `translate(${px.toFixed(2)}, ${lineYAt(px).toFixed(2)})`
+      );
     };
+
 
     const pointerToSvg = (e: PointerEvent) => {
       const r = svg.getBoundingClientRect();
@@ -143,7 +148,7 @@ export default function MagneticLinePlus({
         start: 'top bottom',
         end: 'top center',
         scrub: true,
-        markers: true,
+        markers: false,
         onLeave: () => {
           gsap.ticker.add(draw);
 
@@ -159,11 +164,24 @@ export default function MagneticLinePlus({
 
     tl.to(line, {
       scaleX: 1,
-    }).to(plus, {
-      rotation: 360,
-      transformOrigin: "center",
-      overwrite: true,
-    }, "<");
+    });
+
+    const tl2 = gsap.timeline({
+      scrollTrigger: {
+        trigger: sectionRef.current,
+        start: "top bottom",
+        end: "bottom top",
+        scrub: true,
+        markers: false,
+      },
+    });
+
+    tl2.to(plus, {
+      rotation: 360 * 2,
+      transformOrigin: "50% 50%",
+      ease: "none",
+    });
+
 
 
     hit.addEventListener("pointermove", onMove, { passive: true });
@@ -217,21 +235,23 @@ export default function MagneticLinePlus({
               strokeLinecap: "butt",
             }}
           />
-          <g ref={plusRef} transform="translate(823.5,110)">
-            <line
-              x1="0"
-              y1="-6.5"
-              x2="0"
-              y2="6.5"
-              style={{ stroke: "#272727", strokeWidth: 1, strokeLinecap: "butt" }}
-            />
-            <line
-              x1="6.5"
-              y1="0"
-              x2="-6.5"
-              y2="0"
-              style={{ stroke: "#272727", strokeWidth: 1, strokeLinecap: "butt" }}
-            />
+          <g ref={plusWrapperRef}>
+            <g ref={plusRef}>
+              <line
+                x1="0"
+                y1="-6.5"
+                x2="0"
+                y2="6.5"
+                style={{ stroke: "#272727", strokeWidth: 1, strokeLinecap: "butt" }}
+              />
+              <line
+                x1="6.5"
+                y1="0"
+                x2="-6.5"
+                y2="0"
+                style={{ stroke: "#272727", strokeWidth: 1, strokeLinecap: "butt" }}
+              />
+            </g>
           </g>
         </svg>
       </div>
