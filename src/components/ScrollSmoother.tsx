@@ -1,34 +1,68 @@
 'use client';
 
-import { useEffect } from 'react';
-import Lenis from 'lenis';
 import gsap from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { ReactLenis, type LenisRef } from 'lenis/react';
+import { useEffect, useRef } from 'react';
 
-gsap.registerPlugin(ScrollTrigger);
-
-export default function SmoothScroll({
-  children,
-}: {
+type SmoothScrollingProps = {
   children: React.ReactNode;
-}) {
+};
+
+export default function SmoothScrolling({ children }: SmoothScrollingProps) {
+  const lenisRef = useRef<LenisRef | null>(null);
+  const isSpacePressed = useRef(false);
+
   useEffect(() => {
-    const lenis = new Lenis();
+    // 1. Handle Spacebar Press
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        isSpacePressed.current = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') isSpacePressed.current = false;
+    };
 
-    // Sync Lenis with GSAP
-    lenis.on('scroll', ScrollTrigger.update);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
-    gsap.ticker.add((time) => {
-      lenis.raf(time * 1000); // GSAP uses seconds, Lenis uses ms
-    });
+    // 2. The Animation Loop
+    function update(time: number) {
+      lenisRef.current?.lenis?.raf(time * 1000);
 
-    gsap.ticker.lagSmoothing(0);
+      // Manual Spacebar Scrolling
+      if (isSpacePressed.current && lenisRef.current?.lenis) {
+        const scrollSpeed = 15;
+        const currentScroll = lenisRef.current.lenis.scroll;
+
+        lenisRef.current.lenis.scrollTo(currentScroll + scrollSpeed, {
+          immediate: true,
+        });
+      }
+    }
+
+    gsap.ticker.add(update);
 
     return () => {
-      lenis.destroy();
-      gsap.ticker.remove(lenis.raf);
+      gsap.ticker.remove(update);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
   }, []);
 
-  return <>{children}</>;
+  // 3. Lenis Settings for Mouse Wheel
+  const lenisOptions = {
+    autoRaf: false, // We manage the loop manually via GSAP
+    duration: 1.5, // The "smoothness" duration (higher = smoother)
+    wheelMultiplier: 0.8, // Mouse wheel speed (higher = faster)
+    touchMultiplier: 2, // Touch/Trackpad speed
+    infinite: false, // Infinite scrolling
+  };
+
+  return (
+    <ReactLenis root options={lenisOptions} ref={lenisRef}>
+      {children}
+    </ReactLenis>
+  );
 }
