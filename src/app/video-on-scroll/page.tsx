@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/all";
+import CursorTrails from "@/components/CursorTrails";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -83,6 +84,7 @@ const Page = () => {
 
     return (
         <>
+          <CursorTrails />
             <section ref={containerRef} className="relative z-1">
                 <canvas ref={canvasRef} className="block" />
             </section>
