@@ -10,17 +10,19 @@ interface OdometerProps {
     trigger?: boolean;       // Triggered by Hover
     resetOnExit?: boolean;   // The key prop you requested
     fontSize?: string;
+    fontWeight?: string;
     height?: number;
     duration?: number;
 }
 
-export function Odometer({ 
-    value, 
-    digitCount = 3, 
+export function Odometer({
+    value,
+    digitCount = 3,
     inView = false,
     trigger = false,
-    resetOnExit = true, 
-    fontSize = "text-5xl", 
+    resetOnExit = true,
+    fontSize = "text-5xl",
+    fontWeight = "font-light",
     height = 48,
     duration = 2
 }: OdometerProps) {
@@ -33,16 +35,26 @@ export function Odometer({
 
     const { contextSafe } = useGSAP({ scope: containerRef });
 
-    // Function to spin the numbers UP
+    // Initialize: show the final value immediately (no animation)
+    useGSAP(() => {
+        digitRefs.current.forEach((col, index) => {
+            if (!col) return;
+            const targetDigit = parseInt(digits[index]);
+            gsap.set(col, { y: -targetDigit * height });
+        });
+    }, { scope: containerRef });
+
+    // Function to spin the numbers UP from 0
     const animateOdometer = contextSafe(() => {
         digitRefs.current.forEach((col, index) => {
             if (!col) return;
             const targetDigit = parseInt(digits[index]);
-
+            // Instantly snap to 0, then animate up to target
+            gsap.set(col, { y: 0 });
             gsap.to(col, {
                 y: -targetDigit * height,
                 duration: duration,
-                delay: index * 0.1, 
+                delay: index * 0.1,
                 ease: "power3.inOut",
             });
         });
@@ -52,10 +64,10 @@ export function Odometer({
     const resetOdometer = contextSafe(() => {
         digitRefs.current.forEach((col) => {
             if (col) {
-                gsap.to(col, { 
-                    y: 0, 
-                    duration: 0.5, 
-                    ease: "power2.in" 
+                gsap.to(col, {
+                    y: 0,
+                    duration: 0.5,
+                    ease: "power2.in"
                 });
             }
         });
@@ -82,7 +94,7 @@ export function Odometer({
                     style={{ lineHeight: `${height}px` }}
                 >
                     {numberStack.map((num) => (
-                        <span key={num} className={`${fontSize} font-semibold tabular-nums`} style={{ height: `${height}px` }}>
+                        <span key={num} className={`${fontSize} ${fontWeight} tabular-nums`} style={{ height: `${height}px` }}>
                             {num}
                         </span>
                     ))}
