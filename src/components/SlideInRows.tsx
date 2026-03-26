@@ -79,18 +79,19 @@ const TiltCard = ({ children }: { children: ReactNode }) => {
    Main component
 ───────────────────────────────────────────── */
 interface SlideInRowsProps {
-  rowOne: ReactNode[];
-  rowTwo: ReactNode[];
+  items: ReactNode[];
   header?: ReactNode;
   className?: string;
 }
 
 const SlideInRows = ({
-  rowOne,
-  rowTwo,
+  items,
   header,
   className = "",
 }: SlideInRowsProps) => {
+  const mid = Math.ceil(items.length / 2);
+  const rowOne = items.slice(0, mid);
+  const rowTwo = items.slice(mid);
   const sectionRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   const row1Ref = useRef<HTMLDivElement>(null);
