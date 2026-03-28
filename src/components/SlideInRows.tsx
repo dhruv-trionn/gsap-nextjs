@@ -2,10 +2,11 @@
 
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
+import { MotionPathPlugin } from "gsap/all";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { ReactNode, useEffect, useRef } from "react";
 
-gsap.registerPlugin(ScrollTrigger);
+gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
 
 /* ─────────────────────────────────────────────
    Per-card 3D tilt + cursor-tracking glow
@@ -19,14 +20,23 @@ const TiltCard = ({ children }: { children: ReactNode }) => {
     const glow = glowRef.current;
     if (!card || !glow) return;
 
-    const qRotY = gsap.quickTo(card, "rotateY", { duration: 0.5, ease: "power3.out" });
-    const qRotX = gsap.quickTo(card, "rotateX", { duration: 0.5, ease: "power3.out" });
-    const qScale = gsap.quickTo(card, "scale", { duration: 0.4, ease: "power3.out" });
+    const qRotY = gsap.quickTo(card, "rotateY", {
+      duration: 0.5,
+      ease: "power3.out",
+    });
+    const qRotX = gsap.quickTo(card, "rotateX", {
+      duration: 0.5,
+      ease: "power3.out",
+    });
+    const qScale = gsap.quickTo(card, "scale", {
+      duration: 0.4,
+      ease: "power3.out",
+    });
 
     const onMove = (e: MouseEvent) => {
       const { left, top, width, height } = card.getBoundingClientRect();
-      const dx = (e.clientX - left - width / 2) / (width / 2);   // –1 … 1
-      const dy = (e.clientY - top - height / 2) / (height / 2);  // –1 … 1
+      const dx = (e.clientX - left - width / 2) / (width / 2); // –1 … 1
+      const dy = (e.clientY - top - height / 2) / (height / 2); // –1 … 1
 
       qRotY(dx * 11);
       qRotX(-dy * 7);
@@ -61,7 +71,7 @@ const TiltCard = ({ children }: { children: ReactNode }) => {
   return (
     <div
       ref={cardRef}
-      className="relative cursor-pointer"
+      className="relative cursor-pointer max-w-[550px]"
       style={{ transformStyle: "preserve-3d", willChange: "transform" }}
     >
       {/* cursor-tracking glow overlay */}
@@ -84,11 +94,7 @@ interface SlideInRowsProps {
   className?: string;
 }
 
-const SlideInRows = ({
-  items,
-  header,
-  className = "",
-}: SlideInRowsProps) => {
+const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
   const mid = Math.ceil(items.length / 2);
   const rowOne = items.slice(0, mid);
   const rowTwo = items.slice(mid);
@@ -96,99 +102,107 @@ const SlideInRows = ({
   const headerRef = useRef<HTMLDivElement>(null);
   const row1Ref = useRef<HTMLDivElement>(null);
   const row2Ref = useRef<HTMLDivElement>(null);
+  const leftArc = useRef<SVGPathElement>(null);
+  const rightArc = useRef<SVGPathElement>(null);
 
-  /* ── 1. Scroll-triggered entrance (plays once) ── */
+  // /* ── 1. Scroll-triggered entrance (plays once) ── */
   useGSAP(
     () => {
       const section = sectionRef.current;
       const row1 = row1Ref.current;
       const row2 = row2Ref.current;
       const headerEl = headerRef.current;
+
+      const leftSideArc = leftArc.current;
+      const rightSideArc = rightArc.current;
+
       if (!row1 || !row2) return;
 
       const cards1 = gsap.utils.toArray<HTMLElement>(row1.children);
       const cards2 = gsap.utils.toArray<HTMLElement>(row2.children);
 
-      /* hidden starting state — use xPercent so mouse-parallax x stays independent */
-      gsap.set(row1, { xPercent: -120, opacity: 0 });
-      gsap.set(row2, { xPercent: 120, opacity: 0 });
-      gsap.set([...cards1, ...cards2], { y: 40, scale: 0.9, opacity: 0 });
       if (headerEl) gsap.set(headerEl, { y: 50, opacity: 0 });
 
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: section,
-          start: "top 70%",
-          toggleActions: "play none none none",
+          start: "top top",
+          scrub: 1,
+          pin: true,
+          end: "+=300%",
         },
-        defaults: { ease: "power3.out" },
+        defaults: { ease: "none" },
       });
 
       if (headerEl) {
-        tl.to(headerEl, { y: 0, opacity: 1, duration: 0.75 }, 0);
+        tl.to(headerEl, { y: 0, opacity: 1 }, 0);
       }
 
-      tl.to(row1, { xPercent: 0, opacity: 1, duration: 1 }, 0.1)
-        .to(row2, { xPercent: 0, opacity: 1, duration: 1 }, 0.1)
+      const staggerDelay = 0.07;
+      
+      tl.to(cards1, {
+        stagger:staggerDelay,
+        motionPath: {
+          path: leftSideArc!,
+          align: leftSideArc!,
+          autoRotate: false,
+          alignOrigin: [0.5, 0.5],
+          start: 1,
+          end: 0,
+        },
+        transformOrigin: "start start",
+      });
 
-        /* cards stagger in after rows land */
-        .to(
-          cards1,
-          { y: 0, scale: 1, opacity: 1, stagger: 0.09, duration: 0.6, ease: "back.out(1.6)" },
-          0.55
-        )
-        .to(
-          cards2,
-          { y: 0, scale: 1, opacity: 1, stagger: -0.09, duration: 0.6, ease: "back.out(1.6)" },
-          0.6
-        );
+      tl.to(cards2, {
+        stagger:staggerDelay,
+        motionPath: {
+          path: rightSideArc!,
+          align: rightSideArc!,
+          autoRotate: false,
+          alignOrigin: [0.5, 0.5],
+          start: 1,
+          end: 0,
+        },
+        transformOrigin: "start start",
+      },"<");
     },
-    { scope: sectionRef }
+    { scope: sectionRef },
   );
-
-  /* ── 2. Mouse-move parallax: rows drift in opposite directions ── */
-  useEffect(() => {
-    const section = sectionRef.current;
-    const row1 = row1Ref.current;
-    const row2 = row2Ref.current;
-    if (!section || !row1 || !row2) return;
-
-    /* quickTo uses x (pixels) — independent of xPercent used for entrance */
-    const r1x = gsap.quickTo(row1, "x", { duration: 1, ease: "power3.out" });
-    const r1y = gsap.quickTo(row1, "y", { duration: 1, ease: "power3.out" });
-    const r2x = gsap.quickTo(row2, "x", { duration: 1, ease: "power3.out" });
-    const r2y = gsap.quickTo(row2, "y", { duration: 1, ease: "power3.out" });
-
-    const onMove = (e: MouseEvent) => {
-      const { left, top, width, height } = section.getBoundingClientRect();
-      const dx = (e.clientX - left - width / 2) / (width / 2);   // –1 … 1
-      const dy = (e.clientY - top - height / 2) / (height / 2);  // –1 … 1
-
-      /* row 1 follows the mouse, row 2 pushes away */
-      r1x(dx * 32);
-      r1y(dy * 10);
-      r2x(-dx * 32);
-      r2y(-dy * 10);
-    };
-
-    const onLeave = () => {
-      r1x(0); r1y(0); r2x(0); r2y(0);
-    };
-
-    section.addEventListener("mousemove", onMove);
-    section.addEventListener("mouseleave", onLeave);
-    return () => {
-      section.removeEventListener("mousemove", onMove);
-      section.removeEventListener("mouseleave", onLeave);
-    };
-  }, []);
 
   return (
     <section
       ref={sectionRef}
-      className={`py-20 px-6 overflow-hidden ${className}`}
+      className={`py-20 px-6 relative overflow-hidden ${className}`}
       style={{ perspective: "1000px" }}
     >
+      <svg
+        className="max-h-screen absolute scale-[1.5] "
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="-0.1 -21.1 24.97 51.21"
+      >
+        <path
+          ref={leftArc}
+          d="M 0 -21 C 35 -21 31 31 0 30"
+          stroke="#FF0000"
+          stroke-width="0.1"
+          fill="none"
+        />
+      </svg>
+
+      <svg
+        className="max-h-screen absolute rotate-180 right-0 scale-[1.5]"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="-0.1 -21.1 24.97 51.21"
+      >
+        <path
+          ref={rightArc}
+          d="M 0 -21 C 35 -21 31 31 0 30"
+          stroke="#FF0000"
+          stroke-width="0.1"
+          fill="none"
+        />
+      </svg>
+
       {header && (
         <div ref={headerRef} className="mb-14">
           {header}
@@ -196,20 +210,14 @@ const SlideInRows = ({
       )}
 
       {/* Row 1 — slides from LEFT on scroll, drifts right with mouse */}
-      <div
-        ref={row1Ref}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-6"
-      >
+      <div ref={row1Ref} className="flex flex-col absolute gap-12">
         {rowOne.map((item, i) => (
           <TiltCard key={i}>{item}</TiltCard>
         ))}
       </div>
 
       {/* Row 2 — slides from RIGHT on scroll, drifts left with mouse */}
-      <div
-        ref={row2Ref}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-      >
+      <div ref={row2Ref} className="flex flex-col absolute gap-12 right-0">
         {rowTwo.map((item, i) => (
           <TiltCard key={i}>{item}</TiltCard>
         ))}
