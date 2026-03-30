@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import gsap from "gsap";
-import Lenis from "lenis";
 
 /* ─────────────────────────────────────────────
    Types
@@ -146,7 +145,6 @@ export default function TrionnServices() {
     particleContainer: null as HTMLDivElement | null,
     gsapTL: null as gsap.core.Timeline | null,
     cardsTL: null as gsap.core.Timeline | null,
-    lenis: null as Lenis | null,
   });
 
   const TOTAL = 371;
@@ -590,15 +588,6 @@ export default function TrionnServices() {
   useEffect(() => {
     const s = stateRef.current;
 
-    /* Init Lenis */
-    const lenis = new Lenis({
-      lerp: 0.1,
-      smoothWheel: true,
-      normalizeWheel: true,
-      wheelMultiplier: 1,
-    });
-    s.lenis = lenis;
-
     resize();
     preload();
 
@@ -607,16 +596,15 @@ export default function TrionnServices() {
 
     /* RAF loop */
     let rafId: number;
-    const raf = (time: number) => {
+    const raf = (_time: number) => {
       rafId = requestAnimationFrame(raf);
-      lenis.raf(time);
       if (!s.loaded) return;
 
       const driver = scrollDriverRef.current;
       if (!driver) return;
       const scrollable = driver.offsetHeight - window.innerHeight;
       if (scrollable > 0)
-        s.scrollT = Math.min(1, Math.max(0, lenis.scroll / scrollable));
+        s.scrollT = Math.min(1, Math.max(0, window.scrollY / scrollable));
 
       const targetFrame = s.scrollT * (TOTAL - 1);
       s.videoIdx += (targetFrame - s.videoIdx) * 0.12;
@@ -652,7 +640,6 @@ export default function TrionnServices() {
 
     return () => {
       cancelAnimationFrame(rafId);
-      lenis.destroy();
       window.removeEventListener("resize", handleResize);
       clearParticles();
       if (s.cardsTL) s.cardsTL.kill();
