@@ -120,6 +120,7 @@ function ServiceCard({ data }: { data: CardData }) {
    ───────────────────────────────────────────── */
 export default function TrionnServices() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const bgVideoRef = useRef<HTMLVideoElement>(null);
   const loaderRef = useRef<HTMLDivElement>(null);
   const lfillRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
@@ -631,6 +632,10 @@ export default function TrionnServices() {
         setOverlay(true);
       }
 
+      /* ── Background video: always playing ── */
+      const vid = bgVideoRef.current;
+      if (vid && vid.paused) vid.play().catch(() => {});
+
       updateCards(s.scrollT);
       if (progressRef.current)
         progressRef.current.style.width = s.scrollT * 100 + "%";
@@ -817,8 +822,30 @@ export default function TrionnServices() {
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 block h-screen w-auto"
           />
 
+          {/* Background video — reveals after text blast, blends with canvas frames */}
+          <video
+            ref={bgVideoRef}
+            src="/services_bg_video.mp4"
+            muted
+            loop
+            playsInline
+            preload="auto"
+            className="pointer-events-none object-cover rotate-180"
+            style={{
+              opacity: 0.5,
+              zIndex: 1,
+              mixBlendMode: "screen",
+              position: "absolute",
+              bottom: 0,
+              left: 0,
+              width: "100%",
+              height: "auto",
+              minWidth: "100%",
+            }}
+          />
+
           {/* Cards overlay */}
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-[2]">
             {LEFT_CARDS.map((card) => (
               <div
                 key={card.id}
