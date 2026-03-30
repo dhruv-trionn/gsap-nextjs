@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import gsap from "gsap";
+import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
+gsap.registerPlugin(DrawSVGPlugin);
 
 /* ─────────────────────────────────────────────
    Types
@@ -37,7 +39,26 @@ interface CardData {
   id: string;
   title: string;
   description: string;
+  svgIndex: number;
 }
+
+/* ─────────────────────────────────────────────
+   SVG path data (inlined for DrawSVGPlugin access)
+   ───────────────────────────────────────────── */
+const CARD_SVG_PATHS: string[][] = [
+  // 0 – vertical lines
+  ["M35.9,59.8V.5","M30,59.7V.4","M6.4,59.8V.5","M59.5,59.7V.4","M53.6,59.7V.4","M47.7,59.7V.4","M41.8,59.7V.4","M24.1,59.7V.3","M18.2,59.7V.4","M12.3,59.7V.4","M.5,59.7V.4"],
+  // 1 – concentric circles
+  ["M.6,30c0,16.2,13.2,29.4,29.4,29.4s29.4-13.2,29.4-29.4S46.2.6,30,.6.6,13.8.6,30Z","M6.6,30c0,12.9,10.5,23.4,23.4,23.4s23.4-10.5,23.4-23.4S42.9,6.6,30,6.6,6.6,17.1,6.6,30Z","M12.6,30c0,9.6,7.8,17.4,17.4,17.4s17.4-7.8,17.4-17.4-7.8-17.4-17.4-17.4-17.4,7.8-17.4,17.4Z","M18.6,30c0,6.3,5.1,11.4,11.4,11.4s11.4-5.1,11.4-11.4-5.1-11.4-11.4-11.4-11.4,5.1-11.4,11.4Z","M24.6,30c0,3,2.4,5.4,5.4,5.4s5.4-2.4,5.4-5.4-2.4-5.4-5.4-5.4-5.4,2.4-5.4,5.4Z"],
+  // 2 – concentric squares
+  ["M.6,59.2c0,.1.1.3.3.3h58.3c.1,0,.3-.1.3-.3V.9c0-.1-.1-.3-.3-.3H.8c-.1,0-.3.1-.3.3v58.3h0Z","M6.6,53.2c0,.1,0,.2.2.2h46.4c.1,0,.2,0,.2-.2V6.8c0-.1,0-.2-.2-.2H6.8c-.1,0-.2,0-.2.2v46.4h0Z","M12.6,47.2c0,.1.1.3.3.3h34.3c.1,0,.3-.1.3-.3V12.9c0-.1-.1-.3-.3-.3H12.8c-.1,0-.3.1-.3.3v34.3h0Z","M18.6,41.2c0,.1.1.2.2.2h22.3c.1,0,.2-.1.2-.2v-22.3c0-.1-.1-.2-.2-.2h-22.3c-.1,0-.2.1-.2.2v22.3h0Z","M24.6,35.2c0,.1,0,.2.2.2h10.4c.1,0,.2,0,.2-.2v-10.4c0-.1,0-.2-.2-.2h-10.4c-.1,0-.2,0-.2.2v10.4Z","M29.3,30.1c0-.4.3-.7.7-.7s.7.3.7.7-.3.7-.7.7-.7-.3-.7-.7Z"],
+  // 3 – curved wave lines
+  ["M.5,59.2c4.7-.1,8.8-1.1,12.5-3,10.1-5.1,16.5-15,16.5-26.2S23.1,8.8,13,3.7C9.3,1.9,5.2.9.5.8","M59.6.8c-4.7.1-8.8,1.1-12.5,3-10.1,5.1-16.5,15-16.5,26.3s6.4,21.1,16.5,26.2c3.6,1.8,7.8,2.8,12.5,3","M59.9,6.6c-9.8.6-16.8,5.1-21,13.5-1.5,3-2.2,6.3-2.2,9.9,0,3.6.8,6.9,2.3,9.9,4.3,8.4,11.3,12.9,21.1,13.4","M.4,53.3c7.8-.4,13.9-3.5,18.2-9.2,3.2-4.2,4.8-8.9,4.8-14.1,0-5.2-1.6-9.9-4.8-14.1C14.3,10.2,8.2,7.1.4,6.7","M.5,47.3c5.7-.3,10.3-2.6,13.6-7.1,2.3-3.1,3.4-6.4,3.4-10.2,0-3.7-1.1-7.1-3.4-10.2-3.3-4.5-7.8-6.8-13.6-7.1","M59.8,12.6c-6.8.5-11.7,3.5-14.9,9-1.5,2.5-2.2,5.3-2.2,8.3s.7,5.8,2.2,8.3c3.2,5.5,8.2,8.5,14.9,9","M59.6,18.7c-6.2.4-11,5.2-11,11.3,0,6.1,4.8,10.9,11,11.3","M.4,41.3c5.3-.5,8.9-3.2,10.6-8.2.3-.9.5-1.9.5-3.1h0c0-1.2-.1-2.3-.4-3.1-1.7-5-5.2-7.7-10.5-8.2","M.6,35.3c2.7-.3,4.9-2.5,4.9-5.3,0-2.8-2.1-5-4.9-5.3","M59.7,24.6c-2.8.2-5.1,2.5-5.1,5.3,0,2.8,2.2,5.1,5,5.4"],
+  // 4 – spiral rings (single compound path)
+  ["M47.9,25c0,2.3,0,4.1,0,5.3-.2,4.8-1.9,8.8-5.1,12.1-10,10.2-27.1,5.3-30.2-8.5-2.1-9.1,3.2-18.1,12.3-21,1.7-.5,4.7-.8,9.1-.8,5.8,0,15.2,0,26.1,0M53.7,25c0,2.5,0,4.4,0,5.5,0,3.2-.7,6.3-2.1,9.3-3,6.4-7.9,10.7-14.5,12.8-4.9,1.5-9.7,1.5-14.5-.1C6.5,47,1,27.1,12.3,14.3c3.3-3.7,7.4-6.2,12.4-7.4,1.9-.4,5.2-.7,10.1-.6,7.2,0,16.2,0,25.2,0M36.4,25c0,1,0,2.1,0,3.4,0,3-.4,5.3-3,6.9-3.7,2.4-8.3.4-9.5-3.7-.5-1.9-.2-3.7,1.1-5.4,2-2.7,4.4-2.6,8.1-2.6,12.4,0,21.1,0,26.1,0,.2,0,.3.1.3.3,0,3,.2,6,0,8.6-.9,9.5-5.4,16.9-13.4,22.2-12.7,8.4-30.1,5.2-39.3-6.9C-6.7,30.3,3.1,5.1,24.8,1.1c1.8-.3,5.2-.5,10.1-.5,4.2,0,13.3,0,25,0M42.1,25c0,1.2,0,2.8,0,5,0,5-3,9.4-7.7,11.3-7.6,3-16-2.3-16.5-10.5-.2-3.3.8-6.2,2.9-8.6,1.6-1.8,3.5-3.1,5.7-3.7,1.3-.4,3.5-.6,6.5-.6,11.4,0,21,0,27,0"],
+  // 5 – horizontal lines (oval shape)
+  ["M17.2,59.4h25.5","M8.9,52.9h42.2","M4.2,46.4h51.4","M1.6,39.8h56.7","M.4,33.3h59.2","M.4,26.8h59.2","M1.5,20.3h56.9","M4.2,13.7h51.5","M8.9,7.2h42.2","M17.3.7h25.4"],
+];
 
 /* ─────────────────────────────────────────────
    Data
@@ -45,18 +66,21 @@ interface CardData {
 const LEFT_CARDS: CardData[] = [
   {
     id: "card-L0",
+    svgIndex: 0,
     title: "AI & Intelligent Automation",
     description:
       "AI-powered solutions designed to enhance products, automate workflows, and unlock smarter digital experiences.",
   },
   {
     id: "card-L1",
+    svgIndex: 1,
     title: "Web Development",
     description:
       "Custom web development delivered with a product-focused, design-conscious approach.",
   },
   {
     id: "card-L2",
+    svgIndex: 2,
     title: "Product Design",
     description:
       "AI-powered solutions designed to enhance products, automate workflows, and unlock smarter digital experiences.",
@@ -66,18 +90,21 @@ const LEFT_CARDS: CardData[] = [
 const RIGHT_CARDS: CardData[] = [
   {
     id: "card-R0",
+    svgIndex: 3,
     title: "Website & Mobile Design",
     description:
       "High-quality website and app experiences designed to attract users and keep them coming back.",
   },
   {
     id: "card-R1",
+    svgIndex: 4,
     title: "WordPress Development",
     description:
       "WordPress development focused on performance, clarity, and experiences that convert visitors into loyal users.",
   },
   {
     id: "card-R2",
+    svgIndex: 5,
     title: "Branding",
     description:
       "WordPress development focused on performance, clarity, and experiences that convert visitors into loyal users.",
@@ -100,15 +127,27 @@ function randInt(a: number, b: number) {
    Card Component
    ───────────────────────────────────────────── */
 function ServiceCard({ data }: { data: CardData }) {
+  const paths = CARD_SVG_PATHS[data.svgIndex];
   return (
     <div className="card-inner">
       <div className="card-top">
         <h3>{data.title}</h3>
-        <div className="card-bars">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <span key={i} />
+        <svg
+          viewBox="0 0 60 60"
+          xmlns="http://www.w3.org/2000/svg"
+          className="card-svg-icon text-7xl scale-[2]"
+        >
+          {paths.map((d, i) => (
+            <path
+              key={i}
+              className="svg-path"
+              fill="none"
+              stroke="#d8d8d8"
+              strokeMiterlimit={10}
+              d={d}
+            />
           ))}
-        </div>
+        </svg>
       </div>
       <p>{data.description}</p>
     </div>
@@ -121,8 +160,6 @@ function ServiceCard({ data }: { data: CardData }) {
 export default function TrionnServices() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const bgVideoRef = useRef<HTMLVideoElement>(null);
-  const loaderRef = useRef<HTMLDivElement>(null);
-  const lfillRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const textOverlayRef = useRef<HTMLDivElement>(null);
   const scrollDriverRef = useRef<HTMLDivElement>(null);
@@ -146,11 +183,13 @@ export default function TrionnServices() {
     particleContainer: null as HTMLDivElement | null,
     gsapTL: null as gsap.core.Timeline | null,
     cardsTL: null as gsap.core.Timeline | null,
+    svgFired: new Set<string>(),
+    pairCenterTimes: [] as { lk: string; rk: string; centerTime: number }[],
   });
 
   const TOTAL = 371;
-  const EXPLODE_START = 0.25;
-  const EXPLODE_END = 0.45;
+  const EXPLODE_START = 0.35;
+  const EXPLODE_END = 0.53;
   const CARDS_START = 0.45;
   const CARDS_END = 1.0;
 
@@ -354,6 +393,13 @@ export default function TrionnServices() {
       ["card-L2", "card-R2"],
     ];
 
+    s.svgFired = new Set<string>();
+    s.pairCenterTimes = pairs.map(([lk, rk], i) => ({
+      lk,
+      rk,
+      centerTime: i * pairStep + pairDur * 0.3,
+    }));
+
     pairs.forEach(([lk, rk], i) => {
       const startT = i * pairStep;
       const lEl = cEls[lk];
@@ -479,6 +525,12 @@ export default function TrionnServices() {
       (lEl as any)._colorEnd = startT + pairDur * 0.7;
       (rEl as any)._colorStart = startT + pairDur * 0.3;
       (rEl as any)._colorEnd = startT + pairDur * 0.7;
+
+      /* ── DrawSVG: init paths — animation fires independently in updateCards ── */
+      const svgPathsL = Array.from(lEl.querySelectorAll<SVGPathElement>(".svg-path"));
+      const svgPathsR = Array.from(rEl.querySelectorAll<SVGPathElement>(".svg-path"));
+      if (svgPathsL.length) gsap.set(svgPathsL, { drawSVG: "0%" });
+      if (svgPathsR.length) gsap.set(svgPathsR, { drawSVG: "0%" });
     });
 
     s.cardsTL = tl;
@@ -503,6 +555,26 @@ export default function TrionnServices() {
 
       const prog = Math.min(1, (t - CARDS_START) / (CARDS_END - CARDS_START));
       s.cardsTL?.progress(prog);
+
+      // Fire SVG draw animation once per pair when timeline crosses center time
+      const tlTime = s.cardsTL?.time() ?? 0;
+      s.pairCenterTimes.forEach(({ lk, rk, centerTime }) => {
+        if (!s.svgFired.has(lk) && tlTime >= centerTime) {
+          s.svgFired.add(lk);
+          const lEl = cardRefs.current[lk];
+          const rEl = cardRefs.current[rk];
+          if (lEl) {
+            const paths = Array.from(lEl.querySelectorAll<SVGPathElement>(".svg-path"));
+            if (paths.length)
+              gsap.fromTo(paths, { drawSVG: "0%" }, { drawSVG: "100%", duration: 1.5, ease: "none", stagger: 0.04 });
+          }
+          if (rEl) {
+            const paths = Array.from(rEl.querySelectorAll<SVGPathElement>(".svg-path"));
+            if (paths.length)
+              gsap.fromTo(paths, { drawSVG: "0%" }, { drawSVG: "100%", duration: 1.5, ease: "none", stagger: 0.04 });
+          }
+        }
+      });
     },
     [buildCardsTL, CARDS_START, CARDS_END]
   );
@@ -566,18 +638,8 @@ export default function TrionnServices() {
       const img = new Image();
       img.onload = () => {
         s.loaded++;
-        if (lfillRef.current)
-          lfillRef.current.style.width = (s.loaded / TOTAL) * 100 + "%";
         if (s.loaded === TOTAL) {
           drawFrame(0);
-          setTimeout(() => {
-            const loader = loaderRef.current;
-            if (loader) {
-              loader.style.transition = "opacity 0.4s";
-              loader.style.opacity = "0";
-              setTimeout(() => (loader.style.display = "none"), 400);
-            }
-          }, 200);
         }
       };
       img.src = `stone/frame_${String(i + 1).padStart(4, "0")}.webp`;
@@ -718,18 +780,14 @@ export default function TrionnServices() {
           max-width: 65%;
         }
 
-        .card-bars {
-          display: flex;
-          gap: 3px;
-          align-items: flex-end;
+        .card-svg-icon {
           flex-shrink: 0;
+          width: clamp(28px, 3.5vh, 44px);
+          height: clamp(28px, 3.5vh, 44px);
         }
-        .card-bars span {
-          display: block;
-          width: 2px;
-          background: rgba(255, 255, 255, 0.28);
-          border-radius: 0;
-          height: clamp(20px, 3vh, 44px);
+
+        .svg-path {
+          vector-effect: non-scaling-stroke;
         }
 
         .card-inner p {
@@ -784,22 +842,6 @@ export default function TrionnServices() {
           }
         }
       `}</style>
-
-      {/* ── Loader ── */}
-      <div
-        ref={loaderRef}
-        className="fixed inset-0 bg-black flex items-center justify-center flex-col gap-4 z-[999]"
-      >
-        <span className="text-white/40 font-['Helvetica_Neue',sans-serif] text-[11px] tracking-[0.3em] uppercase">
-          Loading
-        </span>
-        <div className="w-[clamp(120px,30vw,200px)] h-px bg-white/[0.12]">
-          <div
-            ref={lfillRef}
-            className="h-full bg-white w-0 transition-[width] duration-75 ease-out"
-          />
-        </div>
-      </div>
 
       {/* ── Progress bar ── */}
       <div
