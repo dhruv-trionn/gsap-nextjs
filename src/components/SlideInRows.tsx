@@ -4,9 +4,10 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { MotionPathPlugin } from "gsap/all";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
-import { ReactNode, useEffect, useRef } from "react";
+import { SplitText } from "gsap/SplitText";
+import { ReactNode, useRef } from "react";
 
-gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
+gsap.registerPlugin(ScrollTrigger, MotionPathPlugin, SplitText);
 
 /* ─────────────────────────────────────────────
    Per-card 3D tilt + cursor-tracking glow
@@ -14,59 +15,6 @@ gsap.registerPlugin(ScrollTrigger, MotionPathPlugin);
 const TiltCard = ({ children }: { children: ReactNode }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const card = cardRef.current;
-    const glow = glowRef.current;
-    if (!card || !glow) return;
-
-    const qRotY = gsap.quickTo(card, "rotateY", {
-      duration: 0.5,
-      ease: "power3.out",
-    });
-    const qRotX = gsap.quickTo(card, "rotateX", {
-      duration: 0.5,
-      ease: "power3.out",
-    });
-    const qScale = gsap.quickTo(card, "scale", {
-      duration: 0.4,
-      ease: "power3.out",
-    });
-
-    const onMove = (e: MouseEvent) => {
-      const { left, top, width, height } = card.getBoundingClientRect();
-      const dx = (e.clientX - left - width / 2) / (width / 2); // –1 … 1
-      const dy = (e.clientY - top - height / 2) / (height / 2); // –1 … 1
-
-      qRotY(dx * 11);
-      qRotX(-dy * 7);
-      qScale(1.03);
-
-      // spotlight follows cursor
-      const gx = ((e.clientX - left) / width) * 100;
-      const gy = ((e.clientY - top) / height) * 100;
-      gsap.to(glow, {
-        opacity: 1,
-        background: `radial-gradient(circle at ${gx}% ${gy}%, rgba(255,255,255,0.2) 0%, transparent 60%)`,
-        duration: 0.15,
-        overwrite: true,
-      });
-    };
-
-    const onLeave = () => {
-      qRotY(0);
-      qRotX(0);
-      qScale(1);
-      gsap.to(glow, { opacity: 0, duration: 0.5, overwrite: true });
-    };
-
-    card.addEventListener("mousemove", onMove);
-    card.addEventListener("mouseleave", onLeave);
-    return () => {
-      card.removeEventListener("mousemove", onMove);
-      card.removeEventListener("mouseleave", onLeave);
-    };
-  }, []);
 
   return (
     <div
@@ -92,9 +40,24 @@ interface SlideInRowsProps {
   items: ReactNode[];
   header?: ReactNode;
   className?: string;
+  onCardCenter?: (cardIndex: number, isCenter: boolean) => void;
+  /** Number of video frames to play during the pinned section */
+  frameCount?: number;
+  /** Returns the src path for a given 1-based frame index */
+  getFramePath?: (index: number) => string;
+  /** Shown before pin starts, fades to opacity-0 when pin/video begins */
+  preVideoLabel?: ReactNode;
 }
 
-const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
+const SlideInRows = ({
+  items,
+  header,
+  className = "",
+  onCardCenter,
+  frameCount,
+  getFramePath,
+  preVideoLabel,
+}: SlideInRowsProps) => {
   const mid = Math.ceil(items.length / 2);
   const rowOne = items.slice(0, mid);
   const rowTwo = items.slice(mid);
@@ -104,14 +67,16 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
   const row2Ref = useRef<HTMLDivElement>(null);
   const leftArc = useRef<SVGPathElement>(null);
   const rightArc = useRef<SVGPathElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const preVideoLabelRef = useRef<HTMLDivElement>(null);
+  const onCardCenterRef = useRef(onCardCenter);
+  onCardCenterRef.current = onCardCenter;
 
-  // /* ── 1. Scroll-triggered entrance (plays once) ── */
   useGSAP(
     () => {
       const section = sectionRef.current;
       const row1 = row1Ref.current;
       const row2 = row2Ref.current;
-      const headerEl = headerRef.current;
 
       const leftSideArc = leftArc.current;
       const rightSideArc = rightArc.current;
@@ -121,8 +86,63 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
       const cards1 = gsap.utils.toArray<HTMLElement>(row1.children);
       const cards2 = gsap.utils.toArray<HTMLElement>(row2.children);
 
-      if (headerEl) gsap.set(headerEl, { y: 50, opacity: 0 });
+      // ── Canvas / frame-sequence setup ──
+      let cleanup: (() => void) | undefined;
 
+      if (frameCount && getFramePath && canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d")!;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+
+        const setCanvasSize = () => {
+          const ratio = window.devicePixelRatio || 1;
+          canvas.width = window.innerWidth * ratio;
+          canvas.height = window.innerHeight * ratio;
+          canvas.style.width = "100%";
+          canvas.style.height = "100%";
+          ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        };
+        setCanvasSize();
+        window.addEventListener("resize", setCanvasSize);
+        cleanup = () => window.removeEventListener("resize", setCanvasSize);
+
+        const images: HTMLImageElement[] = [];
+        for (let i = 0; i < frameCount; i++) {
+          const img = new Image();
+          img.src = getFramePath(i + 1);
+          images.push(img);
+        }
+
+        const playhead = { frame: 0 };
+
+        const render = () => {
+          const img = images[Math.round(playhead.frame)];
+          if (!img || !img.complete) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, window.innerWidth, window.innerHeight);
+        };
+
+        images[0].onload = () => {
+          render();
+          ScrollTrigger.refresh();
+        };
+
+        // Drive playhead with the same scrub timeline so video stays in sync
+        gsap.to(playhead, {
+          frame: frameCount - 1,
+          ease: "none",
+          onUpdate: render,
+          scrollTrigger: {
+            trigger: section,
+            start: "top top",
+            end: "+=300%",
+            scrub: 1,
+          },
+        });
+      }
+
+      // ── Pinned card arc animation (always active) ──
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: section,
@@ -130,18 +150,35 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
           scrub: 1,
           pin: true,
           end: "+=300%",
+          onKill: cleanup,
         },
         defaults: { ease: "none" },
       });
 
-      if (headerEl) {
-        tl.to(headerEl, { y: 0, opacity: 1 }, 0);
+      // Blast apart the pre-video label characters at the very start of the pin
+      if (preVideoLabelRef.current) {
+        const split = new SplitText(preVideoLabelRef.current, { type: "chars" });
+        tl.to(
+          split.chars,
+          {
+            delay:0.5,
+            duration: 0.4,
+            opacity: 0,
+            x: () => gsap.utils.random(-300, 300),
+            y: () => gsap.utils.random(-300, 300),
+            rotation: () => gsap.utils.random(-180, 180),
+            scale: () => gsap.utils.random(0.2, 1.5),
+            stagger: { amount: 0.2, from: "random" },
+            ease: "power2.in",
+          },
+          0,
+        );
       }
 
-      const staggerDelay = 0.07;
-      
+      const staggerDelay = 0.3;
+
       tl.to(cards1, {
-        stagger:staggerDelay,
+        stagger: staggerDelay,
         motionPath: {
           path: leftSideArc!,
           align: leftSideArc!,
@@ -153,18 +190,22 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
         transformOrigin: "start start",
       });
 
-      tl.to(cards2, {
-        stagger:staggerDelay,
-        motionPath: {
-          path: rightSideArc!,
-          align: rightSideArc!,
-          autoRotate: false,
-          alignOrigin: [0.5, 0.5],
-          start: 1,
-          end: 0,
+      tl.to(
+        cards2,
+        {
+          stagger: staggerDelay,
+          motionPath: {
+            path: rightSideArc!,
+            align: rightSideArc!,
+            autoRotate: false,
+            alignOrigin: [0.5, 0.5],
+            start: 1,
+            end: 0,
+          },
+          transformOrigin: "start start",
         },
-        transformOrigin: "start start",
-      },"<");
+        "<",
+      );
     },
     { scope: sectionRef },
   );
@@ -175,8 +216,17 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
       className={`py-20 px-6 relative overflow-hidden ${className}`}
       style={{ perspective: "1000px" }}
     >
+     
+      {/* Frame-sequence video canvas — only rendered when frameCount/getFramePath are provided */}
+      {frameCount && getFramePath && (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full object-cover z-0"
+        />
+      )}
+
       <svg
-        className="max-h-screen absolute scale-[1.5] "
+        className="max-h-screen absolute scale-[1.5] opacity-0 invisible"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="-0.1 -21.1 24.97 51.21"
       >
@@ -190,7 +240,7 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
       </svg>
 
       <svg
-        className="max-h-screen absolute rotate-180 right-0 scale-[1.5]"
+        className="max-h-screen absolute rotate-180 right-0 scale-[1.5] opacity-0 invisible"
         xmlns="http://www.w3.org/2000/svg"
         viewBox="-0.1 -21.1 24.97 51.21"
       >
@@ -203,9 +253,15 @@ const SlideInRows = ({ items, header, className = "" }: SlideInRowsProps) => {
         />
       </svg>
 
-      {header && (
-        <div ref={headerRef} className="mb-14">
-          {header}
+   
+
+      {/* Pre-video label — visible before pin, fades out when timeline starts */}
+      {preVideoLabel && (
+        <div
+          ref={preVideoLabelRef}
+          className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+        >
+          {preVideoLabel}
         </div>
       )}
 
