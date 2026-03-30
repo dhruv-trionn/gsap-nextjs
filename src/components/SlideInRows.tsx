@@ -3,11 +3,12 @@
 import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { MotionPathPlugin } from "gsap/all";
+import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
 import { ReactNode, useRef } from "react";
 
-gsap.registerPlugin(ScrollTrigger, MotionPathPlugin, SplitText);
+gsap.registerPlugin(ScrollTrigger, MotionPathPlugin, SplitText, DrawSVGPlugin);
 
 /* ─────────────────────────────────────────────
    Per-card 3D tilt + cursor-tracking glow
@@ -143,6 +144,9 @@ const SlideInRows = ({
       }
 
       // ── Pinned card arc animation (always active) ──
+      // cardTrackers is populated after tl is created; use a late-binding ref
+      const cardTrackersRef: { current: Array<{ cardEl: HTMLElement; paths: NodeListOf<SVGPathElement>; lastAnim: number }> } = { current: [] };
+
       const tl = gsap.timeline({
         scrollTrigger: {
           trigger: section,
@@ -151,6 +155,45 @@ const SlideInRows = ({
           pin: true,
           end: "+=300%",
           onKill: cleanup,
+          onUpdate: () => {
+            if (!section || cardTrackersRef.current.length === 0) return;
+            const secRect = section.getBoundingClientRect();
+            const centerX = secRect.left + secRect.width / 2;
+            const centerY = secRect.top + secRect.height / 2;
+            const nowMs = performance.now();
+            for (const tracked of cardTrackersRef.current) {
+              const rect = tracked.cardEl.getBoundingClientRect();
+              const cx = rect.left + rect.width / 2;
+              const cy = rect.top + rect.height / 2;
+              if (
+                Math.hypot(cx - centerX, cy - centerY) < rect.width * 1.5 &&
+                nowMs - tracked.lastAnim > 2500
+              ) {
+                tracked.lastAnim = nowMs;
+                const { paths } = tracked;
+                gsap.killTweensOf(paths);
+                gsap.fromTo(
+                  paths,
+                  { drawSVG: "0%" },
+                  {
+                    drawSVG: "100%",
+                    duration: 1,
+                    ease: "power2.inOut",
+                    stagger: 0.08,
+                    onComplete: () => {
+                      gsap.to(paths, {
+                        drawSVG: "0%",
+                        duration: 0.6,
+                        ease: "power2.in",
+                        delay: 0.3,
+                        stagger: 0.05,
+                      });
+                    },
+                  },
+                );
+              }
+            }
+          },
         },
         defaults: { ease: "none" },
       });
@@ -176,6 +219,23 @@ const SlideInRows = ({
       }
 
       const staggerDelay = 0.3;
+
+      // ── Build card trackers for proximity-based DrawSVG ──
+      type CardTracker = {
+        cardEl: HTMLElement;
+        paths: NodeListOf<SVGPathElement>;
+        lastAnim: number;
+      };
+      const cardTrackers: CardTracker[] = [...cards1, ...cards2]
+        .map((cardEl) => {
+          const paths = cardEl.querySelectorAll<SVGPathElement>("[data-card-svg] path");
+          return paths.length ? { cardEl, paths, lastAnim: 0 } : null;
+        })
+        .filter(Boolean) as CardTracker[];
+
+      // Start all paths invisible and expose trackers to the onUpdate closure
+      cardTrackers.forEach(({ paths }) => gsap.set(paths, { drawSVG: "0%" }));
+      cardTrackersRef.current = cardTrackers;
 
       tl.to(cards1, {
         stagger: staggerDelay,
