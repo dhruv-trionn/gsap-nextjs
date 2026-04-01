@@ -264,8 +264,8 @@ export function useOrbitScene(
       scrollVel -= delta * 0.8;
     };
     const handleMouseMove = (e: MouseEvent) => {
-      mnx = (e.clientX / window.innerWidth - 0.5) * 2;
-      mny = (e.clientY / window.innerHeight - 0.5) * 2;
+      mnx = (e.clientX / window.innerWidth - 0.5) * 6;
+      mny = (e.clientY / window.innerHeight - 0.5) * 6;
     };
     const handleResize = () => {
       cam.aspect = window.innerWidth / window.innerHeight;
