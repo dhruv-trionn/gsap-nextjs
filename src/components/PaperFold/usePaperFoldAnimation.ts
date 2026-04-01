@@ -7,7 +7,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger';
 gsap.registerPlugin(ScrollTrigger);
 
 // First N cards are visible immediately, folding starts from this index
-const FOLD_START_INDEX = 1;
+const FOLD_START_INDEX = 0;
 
 export function usePaperFoldAnimation(
   containerRef: React.RefObject<HTMLDivElement | null>,
@@ -45,14 +45,14 @@ export function usePaperFoldAnimation(
         scrollTrigger: {
           trigger: stack,
           start: isMobile ? 'top bottom' : 'top 80%',
-          end: `+=${foldCount * 250}`,
-          scrub: 1,
+          end: `+=${foldCount * 150}`,
+          scrub: 0.5,
           markers: true,
         },
       });
 
-      const duration = 1;
-      const stagger = 0.85;
+      const duration = 0.6;
+      const stagger = 0.5;
 
       for (let idx = 0; idx < foldCount; idx++) {
         const i = idx + FOLD_START_INDEX;
