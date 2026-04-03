@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import { DrawSVGPlugin } from "gsap/DrawSVGPlugin";
-gsap.registerPlugin(DrawSVGPlugin);
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+gsap.registerPlugin(DrawSVGPlugin, ScrollTrigger);
 
 /* ─────────────────────────────────────────────
    Types
@@ -647,6 +649,18 @@ export default function TrionnServices() {
     }
   }, [drawFrame, TOTAL]);
 
+  /* ── ScrollTrigger drives scrollT progress ── */
+  useGSAP(() => {
+    ScrollTrigger.create({
+      trigger: scrollDriverRef.current,
+      start: "top top",
+      end: "+=300%",
+      onUpdate: (self) => {
+        stateRef.current.scrollT = self.progress;
+      },
+    });
+  }, []);
+
   /* ── Main effect — init everything ── */
   useEffect(() => {
     const s = stateRef.current;
@@ -662,12 +676,6 @@ export default function TrionnServices() {
     const raf = (_time: number) => {
       rafId = requestAnimationFrame(raf);
       if (!s.loaded) return;
-
-      const driver = scrollDriverRef.current;
-      if (!driver) return;
-      const scrollable = driver.offsetHeight - window.innerHeight;
-      if (scrollable > 0)
-        s.scrollT = Math.min(1, Math.max(0, window.scrollY / scrollable));
 
       const targetFrame = s.scrollT * (TOTAL - 1);
       s.videoIdx += (targetFrame - s.videoIdx) * 0.12;
@@ -852,8 +860,8 @@ export default function TrionnServices() {
       {/* ── Scroll driver ── */}
       <div
         ref={scrollDriverRef}
-        className="relative h-[1000vh] md:h-[1000vh]"
-        style={{ height: "1000vh" }}
+        className="relative"
+        style={{ height: "400vh" }}
       >
         {/* Sticky wrap */}
         <div className="sticky top-0 w-full h-screen overflow-hidden">
