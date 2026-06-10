@@ -14,11 +14,11 @@ type Slide = {
   title: string;
   content: string;
 } & (
-    | { image: string; video?: never; autoplay?: never }
-    // `autoplay`: when true the video loops muted inline at all times. All video
-    // cards also play on hover and open the popup on click regardless of flag.
-    | { video: string; autoplay?: boolean; image?: never }
-  );
+  | { image: string; video?: never; autoplay?: never }
+  // `autoplay`: when true the video loops muted inline at all times. All video
+  // cards also play on hover and open the popup on click regardless of flag.
+  | { video: string; autoplay?: boolean; image?: never }
+);
 
 // True for local video files we can play with a native <video> element.
 // YouTube/Vimeo links fall back to the iframe embed.
@@ -55,17 +55,23 @@ const CirculerSlider = () => {
   // rotation direction. Set true to let scroll direction reverse the spin.
   const allowReverse = true;
 
+  // --- Responsive viewport tracking ---
+  // The whole circular layout is computed from the viewport size, so we keep
+  // it in state and recompute on resize. Starts at 0/0 for SSR; the effect
+  // below fills it in on mount.
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     let frame = 0;
     const measure = () => {
+      // Throttle to one update per animation frame during a drag-resize.
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         setViewport({ width: window.innerWidth, height: window.innerHeight });
       });
     };
-    measure();
+
+    measure(); // initial measure on mount
     window.addEventListener("resize", measure);
     return () => {
       cancelAnimationFrame(frame);
@@ -73,14 +79,21 @@ const CirculerSlider = () => {
     };
   }, []);
 
-  const isMobile = viewport.width > 0 && viewport.width <= 768;
+  // Responsive layout values derived from the viewport.
+  // On narrow screens the circle, cards and gap all scale down so the arc
+  // stays on-screen instead of overflowing.
+  const isMobile = viewport.width > 0 && viewport.width < 640;
+  const isTablet = viewport.width >= 640 && viewport.width < 1024;
 
-  // To keep the layout mathematically identical across all screen sizes (small desktop, 
-  // tablet, mobile), we use pure viewport units (vw) for both the radius and the cards.
-  const radiusVw = 0.59; // The user's perfectly tuned curve
-  
-  // 15.6vw equals ~300px on desktop. Using vw keeps the proportional gaps identical on all screens.
-  const cardVw = 15.6;
+  const cardW = isMobile ? 150 : isTablet ? 200 : 250;
+  const cardH = cardW; // square cards
+  // Degrees of arc between neighbouring cards — wider gap on small screens so
+  // the smaller circle's cards don't overlap.
+  const cardGapDeg = isMobile ? 30 : isTablet ? 26 : 30;
+  // Circle radius as a multiple of viewport height. Pivot offset is derived
+  // from the same value so the visible top arc stays centred in the viewport.
+  // Smaller radius -> tighter circle -> fewer cards span the visible width.
+  const radiusVh = isMobile ? 1.0 : isTablet ? 0.85 : 0.75;
 
   // Lock page scroll and pause the carousel spin while the popup is open
   useEffect(() => {
@@ -162,95 +175,11 @@ const CirculerSlider = () => {
       content: "",
       image: "/images/circuler-slider/6.png",
     },
+   
   ];
-
-  // We use exactly 18 slides (the original 12 + the first 6 repeated)
-  // This creates a 20-degree gap between cards.
-  // 20 degrees is the perfect angle to fit exactly 5 cards across the top arc.
-  const extendedSlides = [...slides, ...slides.slice(0, 6)];
-  
-  // On mobile we duplicate the slides to have 3 full sets (36 total). 
-  // This provides a massive buffer on the left and right for seamless infinite dragging.
-  const mobileSlides = [...slides, ...slides, ...slides];
-  const displaySlides = isMobile ? mobileSlides : extendedSlides;
-
-  // To prevent jerks during the continuous 360 rotation, the cards MUST exactly fill the circle.
-  const cardGapDeg = 360 / extendedSlides.length;
-
-  // --- Infinite Marquee for Mobile ---
-  useEffect(() => {
-    if (!isMobile) return;
-
-    let frame: number;
-    let lastTime = performance.now();
-    const speed = 50; // pixels per second (positive = scroll right)
-    
-    const startLoop = () => {
-      const container = scrollContainerRef.current;
-      // offsetLeft of the 13th slide (index 12) is exactly the width of one full set of 12 slides.
-      const setW = slideRefs.current[slides.length]?.offsetLeft;
-      
-      if (container && setW) {
-        // Initialize position to the middle set (Set 2) so we have infinite scroll buffer on both sides
-        if (container.scrollLeft < setW) {
-           container.scrollLeft = setW;
-        }
-        let exactScrollLeft = container.scrollLeft;
-
-        const loop = (time: number) => {
-          // Cap dt to prevent massive jumps if tab is inactive
-          const dt = Math.min((time - lastTime) / 1000, 0.1);
-          lastTime = time;
-
-          // Check if external scroll happened (trackpad, native momentum, etc)
-          // We allow a small 2px difference because setting scrollLeft isn't perfectly precise in some browsers.
-          const isExternallyScrolled = Math.abs(container.scrollLeft - Math.round(exactScrollLeft)) > 2;
-
-          if (isInteractingRef.current || isExternallyScrolled) {
-            // User dragging/swiping or momentum scrolling
-            exactScrollLeft = container.scrollLeft;
-            
-            // Seamless wrap during drag to prevent hitting native boundaries
-            if (exactScrollLeft >= setW * 2) {
-              container.scrollLeft -= setW;
-              exactScrollLeft -= setW;
-            } else if (exactScrollLeft <= setW * 0.5) { 
-              // Wrap before hitting 0 so native momentum doesn't get abruptly stopped
-              container.scrollLeft += setW;
-              exactScrollLeft += setW;
-            }
-          } else {
-            // Auto scroll
-            exactScrollLeft += speed * dt;
-            
-            // Auto wrap
-            if (exactScrollLeft >= setW * 2) {
-              exactScrollLeft -= setW;
-            }
-            
-            container.scrollLeft = exactScrollLeft;
-          }
-          frame = requestAnimationFrame(loop);
-        };
-        
-        lastTime = performance.now();
-        frame = requestAnimationFrame(loop);
-      }
-    };
-
-    // Small delay to ensure flex layout has settled and offsetLeft is accurate
-    const timeout = setTimeout(startLoop, 100);
-
-    return () => {
-      clearTimeout(timeout);
-      cancelAnimationFrame(frame);
-    };
-  }, [isMobile, slides.length]);
 
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const circleRef = useRef<HTMLDivElement | null>(null);
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
-  const isInteractingRef = useRef(false);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const spinTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -267,17 +196,16 @@ const CirculerSlider = () => {
       const section = sectionRef.current;
       const circle = circleRef.current;
 
-      if (!section || !circle || window.innerWidth <= 768) return;
+      if (!section || !circle) return;
 
       // Configuration
       // Large radius so only the shallow top arc of the circle is visible,
       // giving the wide fanned-out layout (cards curve across the top).
-      // `radiusVw`, `cardGapDeg` are responsive (see component scope above).
-      // Read the live viewport width at layout time (this only re-runs on
+      // `radiusVh`, `cardGapDeg` are responsive (see component scope above).
+      // Read the live viewport height at layout time (this only re-runs on
       // breakpoint crossings, so a stale state value would lag behind).
-      const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const radius = vw * radiusVw; // width-based radius → scales to screen edges
+      const radius = vh * radiusVh; // big circle → gentle arc
 
       // Angular spacing between adjacent cards (degrees of arc → radians).
       const sliceAngle = cardGapDeg * (Math.PI / 180);
@@ -309,7 +237,6 @@ const CirculerSlider = () => {
             y: y,
             rotation: rotationDeg, // Orient the card towards the center
             opacity: 1,
-            force3D: true, // Ensure smooth rotation rendering
           });
         });
       };
@@ -327,7 +254,6 @@ const CirculerSlider = () => {
           y: -radius + vh, // ~bottom edge of the section
           rotation: rotationDeg, // final orientation, fixed from the start
           opacity: 0,
-          force3D: true, // Hardware acceleration for smoother animations
         });
       });
 
@@ -461,10 +387,10 @@ const CirculerSlider = () => {
 
           // Start the autoplay videos only now, once the intro has finished —
           // so they don't play behind the loading animation.
-          displaySlides.forEach((slide, i) => {
+          slides.forEach((slide, i) => {
             if (!slide.autoplay) return;
             const video = videoRefs.current[i];
-            video?.play().catch(() => { });
+            video?.play().catch(() => {});
           });
         },
         scrollTrigger: {
@@ -502,11 +428,11 @@ const CirculerSlider = () => {
     },
     {
       scope: sectionRef,
-      // Re-run only when a breakpoint is crossed (radiusVw / cardGapDeg change
+      // Re-run only when a breakpoint is crossed (radiusVh / cardGapDeg change
       // in discrete steps). We deliberately do NOT depend on viewport.height,
       // so a continuous drag-resize doesn't re-run the layout and jerk the
       // cards mid-spin.
-      dependencies: [rotationDuration, allowReverse, radiusVw, cardGapDeg, isMobile],
+      dependencies: [rotationDuration, allowReverse, radiusVh, cardGapDeg],
     },
   );
 
@@ -516,7 +442,7 @@ const CirculerSlider = () => {
 
     const video = videoRefs.current[index];
     if (video) {
-      video.play().catch(() => { });
+      video.play().catch(() => {});
     }
   };
 
@@ -527,7 +453,7 @@ const CirculerSlider = () => {
     // Pause hover playback on leave. Autoplay cards keep looping on their own,
     // so only reset the ones that aren't flagged autoplay.
     const video = videoRefs.current[index];
-    if (video && !displaySlides[index].autoplay) {
+    if (video && !slides[index].autoplay) {
       video.pause();
       video.currentTime = 0;
     }
@@ -568,24 +494,12 @@ const CirculerSlider = () => {
         className="h-screen w-full relative overflow-hidden bg-black"
       >
         <div
-          ref={(el) => {
-            circleRef.current = el;
-            scrollContainerRef.current = el;
-          }}
-          className={
-            isMobile
-              ? "flex overflow-x-auto items-center h-full w-full gap-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-              : "absolute left-1/2 top-1/2 w-0 h-0 flex items-center justify-center"
-          }
-          onTouchStart={() => { isInteractingRef.current = true; }}
-          onTouchEnd={() => { isInteractingRef.current = false; }}
-          onMouseDown={() => { isInteractingRef.current = true; }}
-          onMouseUp={() => { isInteractingRef.current = false; }}
-          onMouseLeave={() => { isInteractingRef.current = false; }}
+          ref={circleRef}
+          className="absolute left-1/2 top-1/2 w-0 h-0 flex items-center justify-center"
           // Pivot sits one radius below centre so only the top arc shows.
-          style={isMobile ? {} : { transform: `translate(-50%, ${radiusVw * 100}vw)` }}
+          style={{ transform: `translate(-50%, ${radiusVh * 100}vh)` }}
         >
-          {displaySlides.map((slide, index) => (
+          {slides.map((slide, index) => (
             <div
               key={index}
               ref={(el) => {
@@ -597,18 +511,12 @@ const CirculerSlider = () => {
               }}
               onMouseEnter={() => handleCardMouseEnter(index)}
               onMouseLeave={() => handleCardMouseLeave(index)}
-              className={`rounded-2xl overflow-hidden shadow-2xl shrink-0 ${
-                isMobile ? "relative" : "absolute"
-              } ${slide.video ? "cursor-pointer" : ""}`}
-              style={
-                isMobile
-                  ? { width: "250px", height: "250px" }
-                  : {
-                      width: `clamp(100px, ${cardVw}vw, 400px)`,
-                      height: `clamp(100px, ${cardVw}vw, 400px)`,
-                      transformOrigin: "center center",
-                    }
-              }
+              className={`absolute rounded-2xl overflow-hidden shadow-2xl ${slide.video ? "cursor-pointer" : ""}`}
+              style={{
+                width: `${cardW}px`,
+                height: `${cardH}px`,
+                transformOrigin: "center center",
+              }}
             >
               {/* Card media: pure image or video, no overlay or filter. */}
               {slide.image ? (
@@ -627,7 +535,6 @@ const CirculerSlider = () => {
                   muted
                   loop
                   playsInline
-                  autoPlay={isMobile && slide.autoplay}
                   // Autoplay is started in JS after the intro finishes (see the
                   // intro timeline's onComplete) — not on mount — so videos
                   // don't play behind the loading animation.
