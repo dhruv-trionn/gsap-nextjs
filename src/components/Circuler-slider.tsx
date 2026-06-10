@@ -89,10 +89,11 @@ const CirculerSlider = () => {
   const cardH = cardW; // square cards
   // Degrees of arc between neighbouring cards — wider gap on small screens so
   // the smaller circle's cards don't overlap.
-  const cardGapDeg = isMobile ? 26 : isTablet ? 22 : 18;
+  const cardGapDeg = isMobile ? 30 : isTablet ? 26 : 30;
   // Circle radius as a multiple of viewport height. Pivot offset is derived
   // from the same value so the visible top arc stays centred in the viewport.
-  const radiusVh = isMobile ? 1.4 : isTablet ? 1.2 : 1.1;
+  // Smaller radius -> tighter circle -> fewer cards span the visible width.
+  const radiusVh = isMobile ? 1.0 : isTablet ? 0.85 : 0.75;
 
   // Lock page scroll and pause the carousel spin while the popup is open
   useEffect(() => {
@@ -355,7 +356,7 @@ const CirculerSlider = () => {
         ease: "power3.out",
       });
       // Perspective must be present for rotationX/Y to read as 3D tilt.
-      gsap.set(slideRefs.current, { transformPerspective: 800 });
+      gsap.set(slideRefs.current, { transformPerspective: 1200 });
 
       // --- Scroll velocity boosts the spin ---
       // The spin's normal direction is always timeScale = +1 (anti-clockwise).
@@ -578,8 +579,6 @@ const CirculerSlider = () => {
               style={{
                 width: `${cardW}px`,
                 height: `${cardH}px`,
-                marginLeft: `${-cardW / 2}px`, // center the card on the pivot
-                marginTop: `${-cardH / 2}px`,
                 transformOrigin: "center center",
               }}
             >
