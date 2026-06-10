@@ -63,6 +63,11 @@ const CirculerSlider = () => {
       clearTimeout(timeout);
       timeout = setTimeout(() => {
         setViewport({ width: window.innerWidth, height: window.innerHeight });
+        // Recompute the desktop arc geometry for the new width. A breakpoint
+        // crossing (e.g. into the marquee) re-runs useGSAP via the isMobile
+        // dependency; within the desktop range this realigns the arc in place
+        // without restarting the intro or the spin.
+        recalcLayoutRef.current?.();
       }, 150);
     };
 
@@ -76,7 +81,10 @@ const CirculerSlider = () => {
     };
   }, []);
 
-  const isMobile = viewport.width > 0 && viewport.width <= 768;
+  // Tablets and phones (≤1024px) get the horizontal marquee layout; only
+  // larger screens get the fanned circular arc. `isMobile` here means
+  // "use the marquee layout" — the name is kept for the existing call sites.
+  const isMobile = viewport.width > 0 && viewport.width <= 1024;
 
   // To keep the layout mathematically identical across all screen sizes (small desktop,
   // tablet, mobile), we use pure viewport units (vw) for both the radius and the cards.
@@ -265,12 +273,22 @@ const CirculerSlider = () => {
   const tiltXRef = useRef<gsap.QuickToFunc | null>(null);
   const tiltYRef = useRef<gsap.QuickToFunc | null>(null);
 
+  // Recomputes the arc geometry for the current viewport width and repaints the
+  // cards at the live rotation. Set up inside useGSAP; called on window resize
+  // so the arc stays aligned at any width without re-running the intro/spin.
+  const recalcLayoutRef = useRef<(() => void) | null>(null);
+
   useGSAP(
     () => {
       const section = sectionRef.current;
       const circle = circleRef.current;
 
-      if (!section || !circle || window.innerWidth <= 768) return;
+      if (!section || !circle || window.innerWidth <= 1024) {
+        // Marquee/no-render path: drop any stale recalc closure from a previous
+        // desktop run so a resize in marquee mode doesn't poke the old cards.
+        recalcLayoutRef.current = null;
+        return;
+      }
 
       // Configuration
       // Large radius so only the shallow top arc of the circle is visible,
@@ -280,7 +298,8 @@ const CirculerSlider = () => {
       // breakpoint crossings, so a stale state value would lag behind).
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const radius = vw * radiusVw; // width-based radius → scales to screen edges
+      // `let` so the resize handler can recompute it as the window changes width.
+      let radius = vw * radiusVw; // width-based radius → scales to screen edges
 
       // Angular spacing between adjacent cards (degrees of arc → radians).
       const sliceAngle = cardGapDeg * (Math.PI / 180);
@@ -337,6 +356,11 @@ const CirculerSlider = () => {
       // Proxy object holding the live rotation value (in radians).
       const animationState = { rotation: 0 };
 
+      // Becomes true once the intro has finished and the cards are visible.
+      // Until then a resize must not call updatePositions (which sets opacity:1)
+      // or it would reveal the cards before the intro plays.
+      let introDone = false;
+
       // Continuous auto-rotation. Spins forever; speed is driven by
       // `rotationDuration` (seconds per full revolution). Starts paused and
       // is kicked off once the intro animation finishes.
@@ -352,6 +376,18 @@ const CirculerSlider = () => {
       });
 
       spinTweenRef.current = spinTween;
+
+      // Repaint the arc for the current window width at the live rotation.
+      // Called by the debounced resize listener so the layout follows the
+      // window without re-running the intro or restarting the spin.
+      recalcLayoutRef.current = () => {
+        radius = window.innerWidth * radiusVw;
+        // Only repaint once the cards are visible — updatePositions forces
+        // opacity:1, which would prematurely reveal them mid-intro.
+        if (introDone) updatePositions(animationState.rotation);
+        // Pull ScrollTrigger's cached measurements back in sync with the new size.
+        ScrollTrigger.refresh();
+      };
 
       // --- Section Z-depth bend setup ---
       // The section pivots from its bottom edge (where the circle's rotation
@@ -496,6 +532,7 @@ const CirculerSlider = () => {
       const introTl = gsap.timeline({
         paused: true,
         onComplete: () => {
+          introDone = true; // cards are now visible; resize may repaint them
           spinTween.play(); // begin auto-spin after intro
 
           // Start the autoplay videos only now, once the intro has finished —
