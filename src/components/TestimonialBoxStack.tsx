@@ -207,10 +207,10 @@ export default function TestimonialBoxStack() {
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        <div className="relative w-[85%] md:w-full max-w-4xl h-[450px] sm:h-[350px] md:h-[300px] md:mx-16">
+        <div className="relative w-[85%] md:w-full max-w-4xl md:mx-16">
 
           <div
-            className="w-full h-full relative"
+            className="w-full grid"
             style={{ perspective: "2000px" }}
             onMouseMove={handleMouseMove}
             onMouseLeave={handleMouseLeave}
@@ -222,7 +222,7 @@ export default function TestimonialBoxStack() {
                   ref={(el) => {
                     cardsRef.current[index] = el;
                   }}
-                  className={`absolute top-0 left-0 w-full h-full rounded-3xl p-8 md:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-white/40 ${testimonial.bgColor}`}
+                  className={`col-start-1 row-start-1 w-full h-full rounded-3xl p-8 md:p-12 shadow-[0_20px_50px_rgba(0,0,0,0.1)] border border-white/40 ${testimonial.bgColor}`}
                   style={{
                     willChange: "transform, opacity, filter",
                     backfaceVisibility: "hidden",
