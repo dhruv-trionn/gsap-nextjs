@@ -175,71 +175,7 @@ const CirculerSlider = () => {
       content: "",
       image: "/images/circuler-slider/6.png",
     },
-    {
-      title: "",
-      content: "",
-      video: "/images/circuler-slider/1.mp4",
-      autoplay: true,
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/1.png",
-    },
-    {
-      title: "",
-      content: "",
-      video: "/images/circuler-slider/2.mp4",
-      autoplay: true,
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/2.png",
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/3.png",
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/3v.png",
-    },
-    {
-      title: "",
-      content: "",
-      video: "/images/circuler-slider/4.mp4",
-      autoplay: true,
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/4.png",
-    },
-    {
-      title: "",
-      content: "",
-      video: "/images/circuler-slider/5.mp4",
-      autoplay: true,
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/5.png",
-    },
-    {
-      title: "",
-      content: "",
-      video: "/images/circuler-slider/6.mp4",
-      autoplay: true,
-    },
-    {
-      title: "",
-      content: "",
-      image: "/images/circuler-slider/6.png",
-    },
+   
   ];
 
   const sectionRef = useRef<HTMLDivElement | null>(null);
