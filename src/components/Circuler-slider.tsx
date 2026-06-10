@@ -14,11 +14,11 @@ type Slide = {
   title: string;
   content: string;
 } & (
-    | { image: string; video?: never; autoplay?: never }
-    // `autoplay`: when true the video loops muted inline at all times. All video
-    // cards also play on hover and open the popup on click regardless of flag.
-    | { video: string; autoplay?: boolean; image?: never }
-  );
+  | { image: string; video?: never; autoplay?: never }
+  // `autoplay`: when true the video loops muted inline at all times. All video
+  // cards also play on hover and open the popup on click regardless of flag.
+  | { video: string; autoplay?: boolean; image?: never }
+);
 
 // True for local video files we can play with a native <video> element.
 // YouTube/Vimeo links fall back to the iframe embed.
@@ -78,7 +78,7 @@ const CirculerSlider = () => {
 
   const isMobile = viewport.width > 0 && viewport.width <= 768;
 
-  // To keep the layout mathematically identical across all screen sizes (small desktop, 
+  // To keep the layout mathematically identical across all screen sizes (small desktop,
   // tablet, mobile), we use pure viewport units (vw) for both the radius and the cards.
   const radiusVw = 0.59; // The user's perfectly tuned curve
 
@@ -172,7 +172,7 @@ const CirculerSlider = () => {
   // 20 degrees is the perfect angle to fit exactly 5 cards across the top arc.
   const extendedSlides = [...slides, ...slides.slice(0, 6)];
 
-  // On mobile we duplicate the slides to have 3 full sets (36 total). 
+  // On mobile we duplicate the slides to have 3 full sets (36 total).
   // This provides a massive buffer on the left and right for seamless infinite dragging.
   const mobileSlides = [...slides, ...slides, ...slides];
   const displaySlides = isMobile ? mobileSlides : extendedSlides;
@@ -206,7 +206,8 @@ const CirculerSlider = () => {
 
           // Check if external scroll happened (trackpad, native momentum, etc)
           // We allow a small 2px difference because setting scrollLeft isn't perfectly precise in some browsers.
-          const isExternallyScrolled = Math.abs(container.scrollLeft - Math.round(exactScrollLeft)) > 2;
+          const isExternallyScrolled =
+            Math.abs(container.scrollLeft - Math.round(exactScrollLeft)) > 2;
 
           if (isInteractingRef.current || isExternallyScrolled) {
             // User dragging/swiping or momentum scrolling
@@ -352,6 +353,15 @@ const CirculerSlider = () => {
 
       spinTweenRef.current = spinTween;
 
+      // --- Section Z-depth bend setup ---
+      // The section pivots from its bottom edge (where the circle's rotation
+      // pivot sits) so it "bends" into 3D depth. rotationX is driven by the
+      // scrubbed ScrollTrigger below (tied to scroll position, not speed).
+      gsap.set(section, {
+        transformPerspective: 1600,
+        transformOrigin: "center bottom",
+      });
+
       // --- Smooth per-card tilt setters ---
       // quickTo gives a continuously-interpolating setter: each mousemove just
       // updates the target and GSAP eases toward it. The first move into the
@@ -453,6 +463,33 @@ const CirculerSlider = () => {
         },
       });
 
+      // --- Scrubbed Z-depth bend, tied to scroll position ---
+      // Driven by scroll POSITION (progress), not speed — it scrubs smoothly as
+      // you scroll and HOLDS wherever you stop instead of snapping back to flat.
+      // Goes 0 → MAX → 0 across the section: flat when the section enters,
+      // folded furthest into depth at the midpoint, flat again as it leaves.
+      // (At 180° the section is momentarily edge-on at the exact midpoint, but
+      // it scrubs through and returns to flat — it doesn't stay hidden.)
+      const MAX_BEND = 75; // degrees of Z-depth fold at the scroll midpoint
+      gsap.fromTo(
+        section,
+        { rotationX: 0 },
+        {
+          keyframes: [
+            { rotationX: 0, duration: 0.5 },
+            { rotationX: MAX_BEND, duration: 0.5 },
+          ],
+          ease: "none",
+          scrollTrigger: {
+            trigger: section,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: true, // ties the tween to scroll position (no jump back)
+            markers: false,
+          },
+        },
+      );
+
       // --- Intro: cards rise from the bottom into their circular positions ---
       // Starts paused; a ScrollTrigger plays it once the section scrolls to
       // 80% of the viewport, so it doesn't run before the user reaches it.
@@ -466,7 +503,7 @@ const CirculerSlider = () => {
           displaySlides.forEach((slide, i) => {
             if (!slide.autoplay) return;
             const video = videoRefs.current[i];
-            video?.play().catch(() => { });
+            video?.play().catch(() => {});
           });
         },
         scrollTrigger: {
@@ -508,7 +545,13 @@ const CirculerSlider = () => {
       // in discrete steps). We deliberately do NOT depend on viewport.height,
       // so a continuous drag-resize doesn't re-run the layout and jerk the
       // cards mid-spin.
-      dependencies: [rotationDuration, allowReverse, radiusVw, cardGapDeg, isMobile],
+      dependencies: [
+        rotationDuration,
+        allowReverse,
+        radiusVw,
+        cardGapDeg,
+        isMobile,
+      ],
     },
   );
 
@@ -518,7 +561,7 @@ const CirculerSlider = () => {
 
     const video = videoRefs.current[index];
     if (video) {
-      video.play().catch(() => { });
+      video.play().catch(() => {});
     }
   };
 
@@ -562,12 +605,12 @@ const CirculerSlider = () => {
   };
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="overflow-hidden h-screen">
       <div
         ref={sectionRef}
         onMouseMove={handleSectionMouseMove}
         onMouseLeave={handleSectionMouseLeave}
-        className="h-screen w-full relative overflow-hidden bg-black"
+        className="h-screen w-full relative overflow-visible bg-white"
       >
         <div
           ref={(el) => {
@@ -579,13 +622,27 @@ const CirculerSlider = () => {
               ? "flex overflow-x-auto items-center h-full w-full gap-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               : "absolute left-1/2 top-1/2 w-0 h-0 flex items-center justify-center"
           }
-          onTouchStart={() => { isInteractingRef.current = true; }}
-          onTouchEnd={() => { isInteractingRef.current = false; }}
-          onMouseDown={() => { isInteractingRef.current = true; }}
-          onMouseUp={() => { isInteractingRef.current = false; }}
-          onMouseLeave={() => { isInteractingRef.current = false; }}
+          onTouchStart={() => {
+            isInteractingRef.current = true;
+          }}
+          onTouchEnd={() => {
+            isInteractingRef.current = false;
+          }}
+          onMouseDown={() => {
+            isInteractingRef.current = true;
+          }}
+          onMouseUp={() => {
+            isInteractingRef.current = false;
+          }}
+          onMouseLeave={() => {
+            isInteractingRef.current = false;
+          }}
           // Pivot sits one radius below centre so only the top arc shows.
-          style={isMobile ? {} : { transform: `translate(-50%, ${radiusVw * 100}vw)` }}
+          style={
+            isMobile
+              ? {}
+              : { transform: `translate(-50%, ${radiusVw * 100}vw)` }
+          }
         >
           {displaySlides.map((slide, index) => (
             <div
@@ -599,16 +656,17 @@ const CirculerSlider = () => {
               }}
               onMouseEnter={() => handleCardMouseEnter(index)}
               onMouseLeave={() => handleCardMouseLeave(index)}
-              className={`rounded-2xl overflow-hidden shadow-2xl shrink-0 ${isMobile ? "relative" : "absolute"
-                } ${slide.video ? "cursor-pointer" : ""}`}
+              className={`rounded-2xl overflow-hidden shrink-0 ${
+                isMobile ? "relative" : "absolute"
+              } ${slide.video ? "cursor-pointer" : ""}`}
               style={
                 isMobile
                   ? { width: "250px", height: "250px" }
                   : {
-                    width: `clamp(100px, ${cardVw}vw, 400px)`,
-                    height: `clamp(100px, ${cardVw}vw, 400px)`,
-                    transformOrigin: "center center",
-                  }
+                      width: `clamp(100px, ${cardVw}vw, 280px)`,
+                      height: `clamp(100px, ${cardVw}vw, 235px)`,
+                      transformOrigin: "center center",
+                    }
               }
             >
               {/* Card media: pure image or video, no overlay or filter. */}
@@ -640,11 +698,6 @@ const CirculerSlider = () => {
           ))}
         </div>
       </div>
-
-      <div className="min-h-screen bg-neutral-900 text-white flex items-center justify-center z-10 relative">
-        <h1 className="text-4xl font-bold">End of Scroll</h1>
-      </div>
-
       {/* Video Popup Modal */}
       {activeSlide?.video && (
         <div
@@ -672,7 +725,7 @@ const CirculerSlider = () => {
               </svg>
             </button>
 
-            <div className="relative aspect-video w-full overflow-hidden rounded-xl shadow-2xl">
+            <div className="relative aspect-video w-full overflow-hidden rounded-xl">
               {isLocalVideo(activeSlide.video) ? (
                 <video
                   src={activeSlide.video}
