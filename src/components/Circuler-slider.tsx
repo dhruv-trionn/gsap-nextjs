@@ -4,7 +4,7 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger"; // Import ScrollTrigger
 import Image from "next/image";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Register the plugin
 gsap.registerPlugin(ScrollTrigger);
@@ -14,11 +14,11 @@ type Slide = {
   title: string;
   content: string;
 } & (
-  | { image: string; video?: never; autoplay?: never }
-  // `autoplay`: when true the video loops muted inline at all times. All video
-  // cards also play on hover and open the popup on click regardless of flag.
-  | { video: string; autoplay?: boolean; image?: never }
-);
+    | { image: string; video?: never; autoplay?: never }
+    // `autoplay`: when true the video loops muted inline at all times. All video
+    // cards also play on hover and open the popup on click regardless of flag.
+    | { video: string; autoplay?: boolean; image?: never }
+  );
 
 // True for local video files we can play with a native <video> element.
 // YouTube/Vimeo links fall back to the iframe embed.
@@ -55,35 +55,28 @@ const CirculerSlider = () => {
   // rotation direction. Set true to let scroll direction reverse the spin.
   const allowReverse = true;
 
-  // --- Responsive viewport tracking ---
-  // The whole circular layout is computed from the viewport size, so we keep
-  // it in state and recompute on resize. Starts at 0/0 for SSR; the effect
-  // below fills it in on mount.
   const [viewport, setViewport] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
-    let frame = 0;
+    let timeout: ReturnType<typeof setTimeout>;
     const measure = () => {
-      // Throttle to one update per animation frame during a drag-resize.
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
         setViewport({ width: window.innerWidth, height: window.innerHeight });
-      });
+      }, 150);
     };
 
-    measure(); // initial measure on mount
+    // Call immediately on mount
+    setViewport({ width: window.innerWidth, height: window.innerHeight });
+
     window.addEventListener("resize", measure);
     return () => {
-      cancelAnimationFrame(frame);
+      clearTimeout(timeout);
       window.removeEventListener("resize", measure);
     };
   }, []);
 
-  // Responsive layout values derived from the viewport.
-  // On narrow screens the circle, cards and gap all scale down so the arc
-  // stays on-screen instead of overflowing.
-  const isMobile = viewport.width > 0 && viewport.width < 640;
-  const isTablet = viewport.width >= 640 && viewport.width < 1024;
+  const isMobile = viewport.width > 0 && viewport.width <= 768;
 
   // To keep the layout mathematically identical across all screen sizes (small desktop, 
   // tablet, mobile), we use pure viewport units (vw) for both the radius and the cards.
@@ -172,7 +165,6 @@ const CirculerSlider = () => {
       content: "",
       image: "/images/circuler-slider/6.png",
     },
-   
   ];
 
   // We use exactly 18 slides (the original 12 + the first 6 repeated)
@@ -188,92 +180,79 @@ const CirculerSlider = () => {
   // To prevent jerks during the continuous 360 rotation, the cards MUST exactly fill the circle.
   const cardGapDeg = 360 / extendedSlides.length;
 
-  // --- Infinite Marquee for Mobile (GSAP based, NO RAF) ---
-  const tweenRef = useRef<gsap.core.Tween | null>(null);
-  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastGsapScrollRef = useRef(-1);
-
-  const killAutoScroll = useCallback(() => {
-    tweenRef.current?.kill();
-    lastGsapScrollRef.current = -1;
-  }, []);
-
-  const startAutoScroll = useCallback(() => {
-    if (!isMobile) return;
-    const container = scrollContainerRef.current;
-    const setW = slideRefs.current[slides.length]?.offsetLeft;
-    if (!container || !setW || isInteractingRef.current) return;
-
-    tweenRef.current?.kill();
-
-    const distance = setW * 2 - container.scrollLeft;
-    if (distance <= 0) {
-      container.scrollLeft = setW;
-      setTimeout(startAutoScroll, 0);
-      return;
-    }
-
-    const duration = distance / 50; // speed = 50px/sec
-
-    tweenRef.current = gsap.to(container, {
-      scrollLeft: setW * 2,
-      duration: duration,
-      ease: "none",
-      onUpdate: () => {
-        lastGsapScrollRef.current = container.scrollLeft;
-      },
-      onComplete: () => {
-        container.scrollLeft = setW;
-        startAutoScroll();
-      }
-    });
-  }, [isMobile, slides.length]);
-
+  // --- Infinite Marquee for Mobile ---
   useEffect(() => {
     if (!isMobile) return;
 
-    const timeout = setTimeout(() => {
+    const speed = 50; // pixels per second (positive = scroll right)
+    let loopFn: gsap.TickerCallback | null = null;
+
+    const startLoop = () => {
       const container = scrollContainerRef.current;
+      // offsetLeft of the 13th slide (index 12) is exactly the width of one full set of 12 slides.
       const setW = slideRefs.current[slides.length]?.offsetLeft;
-      if (container && setW && container.scrollLeft < setW) {
-        container.scrollLeft = setW;
+
+      if (container && setW) {
+        // Initialize position to the middle set (Set 2) so we have infinite scroll buffer on both sides
+        if (container.scrollLeft < setW) {
+          container.scrollLeft = setW;
+        }
+        let exactScrollLeft = container.scrollLeft;
+
+        // Using GSAP's centralized ticker instead of raw requestAnimationFrame
+        loopFn = (time: number, deltaTime: number) => {
+          // Cap dt to prevent massive jumps if tab is inactive
+          const dt = Math.min(deltaTime / 1000, 0.1);
+
+          // Check if external scroll happened (trackpad, native momentum, etc)
+          // We allow a small 2px difference because setting scrollLeft isn't perfectly precise in some browsers.
+          const isExternallyScrolled = Math.abs(container.scrollLeft - Math.round(exactScrollLeft)) > 2;
+
+          if (isInteractingRef.current || isExternallyScrolled) {
+            // User dragging/swiping or momentum scrolling
+            exactScrollLeft = container.scrollLeft;
+
+            // Seamless wrap during drag to prevent hitting native boundaries
+            if (exactScrollLeft >= setW * 2) {
+              container.scrollLeft -= setW;
+              exactScrollLeft -= setW;
+            } else if (exactScrollLeft <= setW * 0.5) {
+              // Wrap before hitting 0 so native momentum doesn't get abruptly stopped
+              container.scrollLeft += setW;
+              exactScrollLeft += setW;
+            }
+          } else {
+            // Auto scroll
+            exactScrollLeft += speed * dt;
+
+            // Auto wrap
+            if (exactScrollLeft >= setW * 2) {
+              exactScrollLeft -= setW;
+            }
+
+            container.scrollLeft = exactScrollLeft;
+          }
+        };
+
+        gsap.ticker.add(loopFn);
       }
-      startAutoScroll();
-    }, 100);
+    };
+
+    // Small delay to ensure flex layout has settled and offsetLeft is accurate
+    const timeout = setTimeout(startLoop, 100);
 
     return () => {
       clearTimeout(timeout);
-      killAutoScroll();
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+      if (loopFn) {
+        gsap.ticker.remove(loopFn);
+      }
     };
-  }, [isMobile, slides.length, startAutoScroll, killAutoScroll]);
-
-  const handleContainerScroll = () => {
-    if (!isMobile) return;
-    const container = scrollContainerRef.current;
-    const setW = slideRefs.current[slides.length]?.offsetLeft;
-    if (!container || !setW) return;
-
-    // Detect manual user scroll (if it differs from GSAP's last set value)
-    if (lastGsapScrollRef.current !== -1 && Math.abs(container.scrollLeft - lastGsapScrollRef.current) > 2) {
-      killAutoScroll();
-
-      if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
-      scrollTimeoutRef.current = setTimeout(() => {
-        if (!isInteractingRef.current) startAutoScroll();
-      }, 500);
-    }
-
-    // Seamless wrap boundaries
-    if (container.scrollLeft >= setW * 2) {
-      container.scrollLeft -= setW;
-    } else if (container.scrollLeft <= setW * 0.5) {
-      container.scrollLeft += setW;
-    }
-  };
+  }, [isMobile, slides.length]);
 
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const circleRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const isInteractingRef = useRef(false);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
   const videoRefs = useRef<(HTMLVideoElement | null)[]>([]);
   const spinTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -290,16 +269,17 @@ const CirculerSlider = () => {
       const section = sectionRef.current;
       const circle = circleRef.current;
 
-      if (!section || !circle) return;
+      if (!section || !circle || window.innerWidth <= 768) return;
 
       // Configuration
       // Large radius so only the shallow top arc of the circle is visible,
       // giving the wide fanned-out layout (cards curve across the top).
-      // `radiusVh`, `cardGapDeg` are responsive (see component scope above).
-      // Read the live viewport height at layout time (this only re-runs on
+      // `radiusVw`, `cardGapDeg` are responsive (see component scope above).
+      // Read the live viewport width at layout time (this only re-runs on
       // breakpoint crossings, so a stale state value would lag behind).
+      const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const radius = vh * radiusVh; // big circle → gentle arc
+      const radius = vw * radiusVw; // width-based radius → scales to screen edges
 
       // Angular spacing between adjacent cards (degrees of arc → radians).
       const sliceAngle = cardGapDeg * (Math.PI / 180);
@@ -331,6 +311,7 @@ const CirculerSlider = () => {
             y: y,
             rotation: rotationDeg, // Orient the card towards the center
             opacity: 1,
+            force3D: true, // Ensure smooth rotation rendering
           });
         });
       };
@@ -348,6 +329,7 @@ const CirculerSlider = () => {
           y: -radius + vh, // ~bottom edge of the section
           rotation: rotationDeg, // final orientation, fixed from the start
           opacity: 0,
+          force3D: true, // Hardware acceleration for smoother animations
         });
       });
 
@@ -481,10 +463,10 @@ const CirculerSlider = () => {
 
           // Start the autoplay videos only now, once the intro has finished —
           // so they don't play behind the loading animation.
-          slides.forEach((slide, i) => {
+          displaySlides.forEach((slide, i) => {
             if (!slide.autoplay) return;
             const video = videoRefs.current[i];
-            video?.play().catch(() => {});
+            video?.play().catch(() => { });
           });
         },
         scrollTrigger: {
@@ -522,11 +504,11 @@ const CirculerSlider = () => {
     },
     {
       scope: sectionRef,
-      // Re-run only when a breakpoint is crossed (radiusVh / cardGapDeg change
+      // Re-run only when a breakpoint is crossed (radiusVw / cardGapDeg change
       // in discrete steps). We deliberately do NOT depend on viewport.height,
       // so a continuous drag-resize doesn't re-run the layout and jerk the
       // cards mid-spin.
-      dependencies: [rotationDuration, allowReverse, radiusVh, cardGapDeg],
+      dependencies: [rotationDuration, allowReverse, radiusVw, cardGapDeg, isMobile],
     },
   );
 
@@ -536,7 +518,7 @@ const CirculerSlider = () => {
 
     const video = videoRefs.current[index];
     if (video) {
-      video.play().catch(() => {});
+      video.play().catch(() => { });
     }
   };
 
@@ -547,7 +529,7 @@ const CirculerSlider = () => {
     // Pause hover playback on leave. Autoplay cards keep looping on their own,
     // so only reset the ones that aren't flagged autoplay.
     const video = videoRefs.current[index];
-    if (video && !slides[index].autoplay) {
+    if (video && !displaySlides[index].autoplay) {
       video.pause();
       video.currentTime = 0;
     }
@@ -597,16 +579,15 @@ const CirculerSlider = () => {
               ? "flex overflow-x-auto items-center h-full w-full gap-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               : "absolute left-1/2 top-1/2 w-0 h-0 flex items-center justify-center"
           }
-          onScroll={handleContainerScroll}
-          onTouchStart={() => { isInteractingRef.current = true; killAutoScroll(); }}
-          onTouchEnd={() => { isInteractingRef.current = false; startAutoScroll(); }}
-          onMouseDown={() => { isInteractingRef.current = true; killAutoScroll(); }}
-          onMouseUp={() => { isInteractingRef.current = false; startAutoScroll(); }}
-          onMouseLeave={() => { isInteractingRef.current = false; startAutoScroll(); }}
+          onTouchStart={() => { isInteractingRef.current = true; }}
+          onTouchEnd={() => { isInteractingRef.current = false; }}
+          onMouseDown={() => { isInteractingRef.current = true; }}
+          onMouseUp={() => { isInteractingRef.current = false; }}
+          onMouseLeave={() => { isInteractingRef.current = false; }}
           // Pivot sits one radius below centre so only the top arc shows.
-          style={{ transform: `translate(-50%, ${radiusVh * 100}vh)` }}
+          style={isMobile ? {} : { transform: `translate(-50%, ${radiusVw * 100}vw)` }}
         >
-          {slides.map((slide, index) => (
+          {displaySlides.map((slide, index) => (
             <div
               key={index}
               ref={(el) => {
@@ -647,6 +628,7 @@ const CirculerSlider = () => {
                   muted
                   loop
                   playsInline
+                  autoPlay={isMobile && slide.autoplay}
                   // Autoplay is started in JS after the intro finishes (see the
                   // intro timeline's onComplete) — not on mount — so videos
                   // don't play behind the loading animation.
