@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  images:{
-     remotePatterns: [
+  images: {
+    remotePatterns: [
       {
         hostname: 'images.unsplash.com',
       },
@@ -10,8 +10,10 @@ const nextConfig: NextConfig = {
         hostname: 'picsum.photos',
       },
     ],
-  }
-  
+  },
+  // @ts-ignore - 'allowedDevOrigins' is an experimental feature in Next.js 15.5.2
+  allowedDevOrigins: ['*'],
+
   /* config options here */
 };
 
